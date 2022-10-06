@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+  <meta charset="UTF-8">
+  <link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/static/favicon-16x16.png">
+  <link rel="manifest" href="/static/site.webmanifest">
+  <meta name="referrer" content="no-referrer">
+  <title>{{ title }}</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="/static/w3.css">
+  <link rel="stylesheet" href="/static/font-awesome-4.7.0/css/font-awesome.min.css">
+  {% block head %}
+  {% endblock %}
+  <style>
+    pre { white-space: pre-wrap }
+    a { text-decoration: none }
+    .truncate { white-space: nowrap; overflow: hidden; text-overflow: ellipsis}
+    {% block style %}
+    {% endblock %}
+  </style>
+
+  <body class="w3-light-gray">
+
+    <header class="w3-container w3-black w3-bar">
+      <span class="w3-bar-item w3-large w3-right">
+        <a rel="noreferrer nofollow" target="_blank" href="https://github.com/dvolk/sc">
+          {{ icon('git-square') }} Sc
+        </a>
+      </span>
+    </header>
+
+    {% block content %}
+    {% endblock %}
+
+    <script>
+      {% block script %}
+      {% endblock %}
+    </script>
+  </body>
+</html>

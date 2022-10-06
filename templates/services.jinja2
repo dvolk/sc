@@ -1,0 +1,47 @@
+{% extends 'base.jinja2' %}
+{% block content %}
+
+  {% macro status_string(s) %}
+    {% if s == "active" %}
+      <span class="w3-green">{{ icon('check-circle') }}</span> active
+    {% endif %}
+  {% endmacro %}
+
+
+  <header class="w3-container w3-indigo">
+    <h2>{{ icon('dashboard') }} Services</h2>
+  </header>
+
+  <div class="w3-container w3-white">
+    <p>
+      {% for service_name, services_on_nodes in out.items() %}
+        <h3>{{ icon('circle-thin') }} {{ service_name }}</h3>
+        <table class="w3-table">
+          <tbody>
+          {% for node_name, service in services_on_nodes.items() %}
+            <tr x-data="{ open: false }" @click="open = ! open" class="w3-li">
+              <td width="10%">{{ icon('server') }} {{ node_name }}</td>
+              <td width="10%">{{ status_string(service.status) }}</td>
+              <td width="20%">
+                {{ icon('refresh') }} Restart&nbsp;&nbsp;&nbsp;
+                {{ icon('stop') }} Stop&nbsp;&nbsp;&nbsp;
+                {{ icon('play ') }} Start&nbsp;&nbsp;&nbsp;
+              </td>
+              <td width="15%">
+                {{ icon('book') }} Log&nbsp;&nbsp;&nbsp;
+                {{ icon('terminal') }} Terminal&nbsp;&nbsp;&nbsp;
+              </td>
+              <td width="20%">
+                {{ icon('send') }} Deploy&nbsp;&nbsp;&nbsp;
+                {{ icon('remove') }} Delete&nbsp;&nbsp;&nbsp;
+                {{ icon('recycle') }} Update&nbsp;&nbsp;&nbsp;
+              </td>
+            </tr>
+          {% endfor %}
+          </tbody>
+          </table>
+      {% endfor %}
+    </p>
+  </div>
+
+{% endblock %}
