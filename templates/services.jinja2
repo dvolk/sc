@@ -5,12 +5,22 @@
   padding: 5px;
   margin-right: 5px;
   }
+  .isDisabled {
+  color: #666;
+  cursor: not-allowed;
+  opacity: 0.5;
+  text-decoration: none;
+  }
 {% endblock %}
 {% block content %}
 
   {% macro status_string(s) %}
     {% if s == "active" %}
-      <span class="w3-green">{{ icon('check-circle') }}</span> active
+      <span class="w3-green">{{ icon('check-circle') }}</span> OK
+    {% elif s == "inactive" %}
+      <span class="w3-red">{{ icon('exclamation-circle') }}</span> FAILED
+    {% else %}
+      <span class="w3-grey" >{{ icon('times') }}</span> UNKNOWN
     {% endif %}
   {% endmacro %}
 
@@ -30,25 +40,27 @@
         <table class="w3-table">
           <tbody>
           {% for node_name, service in services_on_nodes.items() %}
-            <tr x-data="{ open: false }" @click="open = ! open" class="w3-li">
+            <tr>
               <td>
                 {{ icon('server') }} {{ node_name }}
               </td>
               <td style="text-align: right">
-                {{ status_string(service.status) }}&nbsp;&nbsp;
+                {{ status_string(service.status[node_name]) }}&nbsp;&nbsp;
                 <span class="button-group">
-                  <a href="{{ url_for('restart', service=service.name, node_name=node_name) }}">{{ icon('refresh') }}</a>
-                  <a href="{{ url_for('stop', service=service.name, node_name=node_name) }}">{{ icon('stop') }}</a>
                   <a href="{{ url_for('start', service=service.name, node_name=node_name) }}">{{ icon('play') }}</a>
+                  <a href="{{ url_for('stop', service=service.name, node_name=node_name) }}">{{ icon('stop') }}</a>
+                   <a href="{{ url_for('restart', service=service.name, node_name=node_name) }}">{{ icon('refresh') }}</a>
                 </span>
                 <span class="button-group">
                   <a href="{{ url_for('open_terminal_log', service=service.name, node_name=node_name) }}">{{ icon('book') }}</a>
                   <a href="{{ url_for('open_terminal_shell', service=service.name, node_name=node_name) }}">{{ icon('terminal') }}</a>
                 </span>
                 <span class="button-group">
-                  <a href="{{ url_for('deploy', service=service.name, node_name=node_name) }}">{{ icon('send') }}</a>
-                  <a href="{{ url_for('delete', service=service.name, node_name=node_name) }}">{{ icon('remove') }}</a>
-                  <a href="{{ url_for('update', service=service.name, node_name=node_name) }}">{{ icon('recycle') }}</a>
+                  <a {% if not (service.deploy and service.systemd_unit) %} class="isDisabled" {% else %} href="{{ url_for('deploy', service=service.name, node_name=node_name) }}" {% endif %}>
+                    {{ icon('send') }}
+                  </a>
+                  <a {% if not (service.delete and service.systemd_unit) %} class="isDisabled" {% else %} href="{{ url_for('delete', service=service.name, node_name=node_name) }}" {% endif %}>{{ icon('remove') }}</a>
+                  <a {% if not (service.delete and service.deploy and service.systemd_unit) %} class="isDisabled" {% else %} href="{{ url_for('update', service=service.name, node_name=node_name) }}" {% endif %}>{{ icon('recycle') }}</a>
                 </span>
               </td>
             </tr>
@@ -61,18 +73,24 @@
 
   <div class="w3-container w3-half w3-panel w3-white">
     <p>
-    <h2>{{ icon('building') }} Nodes</h2>
-    <table class="w3-table" style="width: 95%">
-      <tbody>
-        {% for node in nodes.nodes %}
-          <tr>
-            <td>{{ icon('server') }} {{ node.node_name }}</td>
-            <td style="text-align: center">{{ node.mem_used }} MB / {{ node.mem_avail }} MB</td>
-            <td style="text-align: right">{{ node.load }} load / {{ node.cpus }} CPUs</td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+      <h2>{{ icon('building') }} Nodes</h2>
+      <table class="w3-table" style="width: 95%">
+        <tbody>
+          {% for node in nodes.nodes %}
+            <tr>
+              <td>{{ icon('server') }} {{ node.node_name }}</td>
+              <td style="text-align: center">{{ node.mem_used }} MB / {{ node.mem_avail }} MB</td>
+              <td style="text-align: right">{{ node.load }} load / {{ node.cpus }} CPUs</td>
+            </tr>
+            {% for mount_point, data in node.df.items() %}
+              <tr>
+                <td>&nbsp;&nbsp; {{ icon('hdd-o') }} {{ data[5] }}</td>
+                <td colspan=2 style="text-align: right">{{ (data[2]|int // 1e6)|round(1) }} GB / {{ (data[3]|int // 1e6)|round(1) }} GB&nbsp;&nbsp;&nbsp;</td>
+              </tr>
+            {% endfor %}
+          {% endfor %}
+        </tbody>
+      </table>
     </p>
   </div>
 

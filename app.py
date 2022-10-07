@@ -1,8 +1,11 @@
 import subprocess
 import collections
+import pathlib
+import tempfile
 
 import yaml
 import flask
+import argh
 
 app = flask.Flask(__name__)
 
@@ -21,6 +24,7 @@ class Node:
         self.mem_avail = None
         self.load = None
         self.cpus = None
+        self.df = dict()
 
     def update_metrics(self):
         mem_cmd = ["ssh", self.node_name, "free"]
@@ -29,10 +33,19 @@ class Node:
         self.mem_avail = int(int(mem_cmd_out_words[1][1]) // 1e3)
         load_cmd = ["ssh", self.node_name, "uptime"]
         load_cmd_out_words = lines_words(subprocess.check_output(load_cmd))
-        self.load = float(load_cmd_out_words[0][10][:-1])
+        print(load_cmd_out_words)
+        self.load = float(load_cmd_out_words[0][-3][:-1])
         cpus_cmd = ["ssh", self.node_name, "cat /proc/cpuinfo"]
         cpus_cmd_out_words = subprocess.check_output(cpus_cmd).decode().split()
         self.cpus = cpus_cmd_out_words.count("vendor_id")
+        df_cmd = ["ssh", self.node_name, "df"]
+        df_out_words = lines_words(subprocess.check_output(df_cmd)[1:-1])
+        print(df_out_words)
+        self.df = {
+            line[0]: line
+            for line in df_out_words
+            if line[0].startswith("/dev/sd") or line[0].startswith("/dev/mapper")
+        }
 
 
 class Nodes:
@@ -50,16 +63,20 @@ class Service:
     def __init__(self, service_dict):
         self.name = service_dict["name"]
         self.nodes = service_dict.get("nodes", [])
-        self.systemd_status = None
-
-    def parse_systemd_status(self):
-        lines = self.systemd_status.split("\n")
-        self.status = lines[2].split()[1]
+        self.deploy_script = service_dict.get("deploy", None)
+        self.delete_script = service_dict.get("delete", None)
+        self.systemd_unit = service_dict.get("unit", None)
+        self.status = dict()
 
     def update_status_on_node(self, node_name):
         cmd = ["ssh", node_name, "systemctl", "--no-page", "status", self.name]
-        self.systemd_status = subprocess.check_output(cmd).decode()
-        self.parse_systemd_status()
+        p = subprocess.run(cmd, stdout=subprocess.PIPE)
+        if p.returncode == 0:
+            self.status[node_name] = "active"
+        elif p.returncode == 3:
+            self.status[node_name] = "inactive"
+        else:
+            self.status[node_name] = "unknown"
 
     def update_status_on_all_nodes(self):
         for node_name in self.nodes:
@@ -67,15 +84,15 @@ class Service:
 
     def restart(self, node_name):
         cmd = ["ssh", node_name, "systemctl", "restart", self.name]
-        self.systemd_status = subprocess.check_output(cmd)
+        subprocess.check_output(cmd)
 
     def stop(self, node_name):
         cmd = ["ssh", node_name, "systemctl", "stop", self.name]
-        self.systemd_status = subprocess.check_output(cmd)
+        subprocess.check_output(cmd)
 
     def start(self, node_name):
         cmd = ["ssh", node_name, "systemctl", "start", self.name]
-        self.systemd_status = subprocess.check_output(cmd)
+        subprocess.check_output(cmd)
 
     def open_terminal_shell(self, node_name):
         cmd = f"ssh {node_name}"
@@ -88,16 +105,54 @@ class Service:
         subprocess.Popen(term_cmd)
 
     def deploy(self, node_name):
-        # run deploy script if it exists
-        pass
+        """Run deploy script, if it exists in the config file."""
+        with open(f"/tmp/{self.name}.service", "w") as f:
+            f.write(self.systemd_unit)
+        cmd = [
+            "scp",
+            f"/tmp/{self.name}.service",
+            f"{node_name}:/lib/systemd/system/{self.name}.service",
+        ]
+        subprocess.check_output(cmd)
+        cmd = ["ssh", node_name, "systemctl daemon-reload"]
+        subprocess.check_output(cmd)
+        with open(f"/tmp/{self.name}.deploy.sh", "w") as f:
+            f.write(self.deploy_script)
+        cmd = ["scp", f"/tmp/{self.name}.deploy.sh", f"{node_name}:/tmp/"]
+        subprocess.check_output(cmd)
+        cmd = [
+            "ssh",
+            node_name,
+            f"bash /tmp/{self.name}.deploy.sh > /tmp/{self.name}.deploy.stdout &",
+        ]
+        print(cmd)
+        subprocess.check_output(cmd)
+        cmd = ["ssh", node_name, f"systemctl start {self.name}.service"]
+        subprocess.check_output(cmd)
 
     def delete(self, node_name):
         # run delete script if it exists
-        pass
+        cmd = ["ssh", node_name, f"systemctl stop {self.name}.service"]
+        subprocess.check_output(cmd)
+        cmd = ["ssh", {node_name}, f"rm /lib/systemd/system/{self.name}.service"]
+        subprocess.check_output(cmd)
+        cmd = ["ssh", node_name, "systemctl daemon-reload"]
+        subprocess.check_output(cmd)
+        with open(f"/tmp/{self.name}.delete.sh", "w") as f:
+            f.write(self.delete_script)
+        cmd = ["scp", f"/tmp/{self.name}.delete.sh", f"{node_name}:/tmp/"]
+        subprocess.check_output(cmd)
+        cmd = [
+            "ssh",
+            node_name,
+            f"bash /tmp/{self.name}.delete.sh > /tmp/{self.name}.delete.stdout &",
+        ]
+        print(cmd)
+        subprocess.check_output(cmd)
 
     def update(self, node_name):
-        # delete + deploy?
-        pass
+        self.delete()
+        self.deploy()
 
 
 class Services:
@@ -124,35 +179,7 @@ class Services:
         return self.by_node.keys()
 
 
-services = Services(
-    """
-services:
-  - name: sshd
-    nodes:
-      - eclipse
-      - fanubuntu
-    deploy: |
-      git clone https://github.com/dvolk/catboard
-      cd catboard
-      virtualenv env
-      source env/bin/activate
-      pip3 install -r requirements.txt
-      flask db upgrade
-      python3 app.py
-    delete: |
-      rm -rf .*
-  - name: mongodb
-    nodes:
-      - eclipse
-  - name: ModemManager
-    nodes:
-      - eclipse
-      - fanubuntu
-  - name: daaas-wfe
-    nodes:
-      - pl_dev_dev_wfe
-"""
-)
+services = None
 
 
 def icon(name):
@@ -173,8 +200,6 @@ def make_service_node_dict():
     for service in services.all:
         print(service.nodes)
         for node_name in service.nodes:
-            print(service.systemd_status)
-            print(node_name)
             out[service.name][node_name] = service
     print(out)
     return out
@@ -239,5 +264,11 @@ def index():
     return flask.render_template("services.jinja2", out=out, nodes=nodes)
 
 
-if __name__ == "__main__":
+def main(services_yaml):
+    global services
+    services = Services(pathlib.Path(services_yaml).read_text())
     app.run(port=1234, debug=True)
+
+
+if __name__ == "__main__":
+    argh.dispatch_command(main)
