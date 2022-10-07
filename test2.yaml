@@ -1,9 +1,9 @@
 services:
   - name: sshd
     nodes:
-      - sc-node-5i3O4
-      - sc-node-FrOg2
-      - sc-node-dx5Z0
+      - sc-node-5i3O4.lxd
+      - sc-node-FrOg2.lxd
+      - sc-node-dx5Z0.lxd
   - name: catboard
     unit: |
       [Unit]
@@ -12,7 +12,11 @@ services:
       WorkingDirectory=/root/catboard
       ExecStart=/root/catboard/env/bin/python /root/catboard/app.py --host 0.0.0.0 --port 7777
     nodes:
-      - sc-node-FrOg2
+      - sc-node-5i3O4.lxd
+      - sc-node-FrOg2.lxd
+      - sc-node-dx5Z0.lxd
+    ports:
+      - 7777
     deploy: |
       apt update
       apt install -y python3-pip python3-venv git
@@ -23,13 +27,13 @@ services:
       source /root/catboard/env/bin/activate
       pip3 install -r requirements.txt
       flask db upgrade
-    remove: |
+    delete: |
       rm -rf /root/catboard
   - name: cron
     nodes:
-      - sc-node-5i3O4
-      - sc-node-FrOg2
-      - sc-node-dx5Z0
+      - sc-node-5i3O4.lxd
+      - sc-node-FrOg2.lxd
+      - sc-node-dx5Z0.lxd
   - name: mongodb
     nodes:
       - eclipse

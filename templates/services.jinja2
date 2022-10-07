@@ -34,7 +34,7 @@
 
   <div class="w3-container w3-half w3-panel w3-white">
     <p>
-      <h2>Services</h2>
+      <h2>{{ icon('cogs') }} Services</h2>
       {% for service_name, services_on_nodes in out.items() %}
         <h3>{{ icon('circle-thin') }} {{ service_name }}</h3>
         <table class="w3-table">
@@ -64,6 +64,15 @@
                 </span>
               </td>
             </tr>
+            {% if service.ports and service.status[node_name] == "active" %}
+              {% for port in service.ports %}
+                <tr>
+                  <td colspan=2>
+                    &nbsp;&nbsp;<a class="w3-btn w3-small w3-round w3-green" target="_blank" href="http://{{ node_name }}:{{ port }}">{{ icon('external-link') }} http://{{ node_name }}:{{ port }}</a>
+                  </td>
+                </tr>
+              {% endfor %}
+            {% endif %}
           {% endfor %}
           </tbody>
           </table>

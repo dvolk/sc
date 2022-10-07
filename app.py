@@ -66,6 +66,7 @@ class Service:
         self.deploy_script = service_dict.get("deploy", None)
         self.delete_script = service_dict.get("delete", None)
         self.systemd_unit = service_dict.get("unit", None)
+        self.ports = service_dict.get("ports", None)
         self.status = dict()
 
     def update_status_on_node(self, node_name):
@@ -133,9 +134,9 @@ class Service:
     def delete(self, node_name):
         # run delete script if it exists
         cmd = ["ssh", node_name, f"systemctl stop {self.name}.service"]
-        subprocess.check_output(cmd)
-        cmd = ["ssh", {node_name}, f"rm /lib/systemd/system/{self.name}.service"]
-        subprocess.check_output(cmd)
+        subprocess.run(cmd)
+        cmd = ["ssh", node_name, f"rm /lib/systemd/system/{self.name}.service"]
+        subprocess.run(cmd)
         cmd = ["ssh", node_name, "systemctl daemon-reload"]
         subprocess.check_output(cmd)
         with open(f"/tmp/{self.name}.delete.sh", "w") as f:
