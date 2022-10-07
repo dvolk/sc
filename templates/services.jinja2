@@ -1,4 +1,11 @@
 {% extends 'base.jinja2' %}
+{% block style %}
+  .button-group {
+  background-color: #eee;
+  padding: 5px;
+  margin-right: 5px;
+  }
+{% endblock %}
 {% block content %}
 
   {% macro status_string(s) %}
@@ -7,40 +14,65 @@
     {% endif %}
   {% endmacro %}
 
+  {% macro cmd_link(cmd, icon) %}
+    <a href="{{ url_for(cmd, service=service.name, node_name=node_name) }}">{{ icon(icon) }}</a>
+  {% endmacro %}
 
   <header class="w3-container w3-indigo">
-    <h2>{{ icon('dashboard') }} Services</h2>
+    <h2>{{ icon('dashboard') }} Dashboard</h2>
   </header>
 
-  <div class="w3-container w3-white">
+  <div class="w3-container w3-half w3-panel w3-white">
     <p>
+      <h2>Services</h2>
       {% for service_name, services_on_nodes in out.items() %}
         <h3>{{ icon('circle-thin') }} {{ service_name }}</h3>
         <table class="w3-table">
           <tbody>
           {% for node_name, service in services_on_nodes.items() %}
             <tr x-data="{ open: false }" @click="open = ! open" class="w3-li">
-              <td width="10%">{{ icon('server') }} {{ node_name }}</td>
-              <td width="10%">{{ status_string(service.status) }}</td>
-              <td width="20%">
-                {{ icon('refresh') }} Restart&nbsp;&nbsp;&nbsp;
-                {{ icon('stop') }} Stop&nbsp;&nbsp;&nbsp;
-                {{ icon('play ') }} Start&nbsp;&nbsp;&nbsp;
+              <td>
+                {{ icon('server') }} {{ node_name }}
               </td>
-              <td width="15%">
-                {{ icon('book') }} Log&nbsp;&nbsp;&nbsp;
-                {{ icon('terminal') }} Terminal&nbsp;&nbsp;&nbsp;
-              </td>
-              <td width="20%">
-                {{ icon('send') }} Deploy&nbsp;&nbsp;&nbsp;
-                {{ icon('remove') }} Delete&nbsp;&nbsp;&nbsp;
-                {{ icon('recycle') }} Update&nbsp;&nbsp;&nbsp;
+              <td style="text-align: right">
+                {{ status_string(service.status) }}&nbsp;&nbsp;
+                <span class="button-group">
+                  <a href="{{ url_for('restart', service=service.name, node_name=node_name) }}">{{ icon('refresh') }}</a>
+                  <a href="{{ url_for('stop', service=service.name, node_name=node_name) }}">{{ icon('stop') }}</a>
+                  <a href="{{ url_for('start', service=service.name, node_name=node_name) }}">{{ icon('play') }}</a>
+                </span>
+                <span class="button-group">
+                  <a href="{{ url_for('open_terminal_log', service=service.name, node_name=node_name) }}">{{ icon('book') }}</a>
+                  <a href="{{ url_for('open_terminal_shell', service=service.name, node_name=node_name) }}">{{ icon('terminal') }}</a>
+                </span>
+                <span class="button-group">
+                  <a href="{{ url_for('deploy', service=service.name, node_name=node_name) }}">{{ icon('send') }}</a>
+                  <a href="{{ url_for('delete', service=service.name, node_name=node_name) }}">{{ icon('remove') }}</a>
+                  <a href="{{ url_for('update', service=service.name, node_name=node_name) }}">{{ icon('recycle') }}</a>
+                </span>
               </td>
             </tr>
           {% endfor %}
           </tbody>
           </table>
       {% endfor %}
+    </p>
+  </div>
+
+  <div class="w3-container w3-half w3-panel w3-white">
+    <p>
+    <h2>{{ icon('building') }} Nodes</h2>
+    <table class="w3-table" style="width: 95%">
+      <tbody>
+        {% for node in nodes.nodes %}
+          <tr>
+            <td>{{ icon('server') }} {{ node.node_name }}</td>
+            <td style="text-align: center">{{ node.mem_used }} MB / {{ node.mem_avail }} MB</td>
+            <td style="text-align: right">{{ node.load }} load / {{ node.cpus }} CPUs</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
     </p>
   </div>
 
