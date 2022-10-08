@@ -1,0 +1,39 @@
+services:
+  - name: sshd
+    nodes:
+      - localhost
+      - eclipse
+  - name: catboard
+    unit: |
+      [Unit]
+      Description=Catboard port 7777
+      [Service]
+      WorkingDirectory=/root/catboard
+      ExecStart=/root/catboard/env/bin/python /root/catboard/app.py --host 0.0.0.0 --port 7777
+    nodes:
+      - localhost
+    ports:
+      - 7777
+    deploy: |
+      apt update
+      apt install -y python3-pip python3-venv git
+      rm -rf /root/catboard
+      git clone https://github.com/dvolk/catboard /root/catboard
+      cd /root/catboard
+      python3 -m venv env
+      source /root/catboard/env/bin/activate
+      pip3 install -r requirements.txt
+      flask db upgrade
+    delete: |
+      rm -rf /root/catboard
+  - name: mongodb
+    nodes:
+      - eclipse
+  - name: ModemManager
+    nodes:
+      - eclipse
+      - localhost
+  - name: cron
+    nodes:
+      - eclipse
+      - localhost
