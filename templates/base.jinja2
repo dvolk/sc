@@ -10,6 +10,9 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <link rel="stylesheet" href="/static/w3.css">
   <link rel="stylesheet" href="/static/font-awesome-4.7.0/css/font-awesome.min.css">
+  {% if refresh_rate %}
+    <meta http-equiv="refresh" content="{{ refresh_rate }}">
+  {% endif %}
   {% block head %}
   {% endblock %}
   <style>

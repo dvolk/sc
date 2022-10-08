@@ -46,6 +46,28 @@
     <h2>{{ icon('dashboard') }} Dashboard</h2>
   </header>
 
+  <div class="w3-container w3-white w3-row-padding">
+    <form method="POST" action="/apply_settings">
+      <div class="w3-col m4 l2">
+        <p>
+          <label>Page reload:</label>
+          <select name="refresh_rate" class="w3-input">
+            {% set options = [("", "Disable"), (5, "5 seconds"), (10, "10 seconds"), (20, "20 seconds"), (30, "30 seconds"), (60, "1 Minute"), (300, "5 minutes")] %}
+            {% for option in options %}
+              <option value="{{ option[0] }}">{{ option[1] }}</option>
+            {% endfor %}
+          </select>
+        </p>
+      </div>
+      <div class="w3-col m4 l2">
+        <p>
+          <br/>
+          <button style="margin-left: 10px;" class="w3-btn w3-blue">Apply</button>
+        </p>
+      </div>
+    </form>
+  </div>
+
   <div class="w3-container w3-half w3-panel w3-white" style="padding: 10px 20px;">
     <h2>{{ icon('cogs') }} Services {% if services.warnings %}<span style="padding: 0 10px; float:right" class="w3-red">Warnings: {{ services.warnings }}</span>{% endif %}</h2>
     {% for service_name, services_on_nodes in out.items() %}
@@ -81,7 +103,7 @@
               {% for port in service.ports %}
                 <tr>
                   <td colspan=2>
-                    &nbsp;&nbsp;<a class="w3-btn w3-small w3-round w3-green" target="_blank" href="http://{{ node_name }}:{{ port }}">{{ icon('external-link') }} http://{{ node_name }}:{{ port }}</a>
+                    &nbsp;&nbsp;<a class="w3-btn w3-small w3-green" target="_blank" href="http://{{ node_name }}:{{ port }}">{{ icon('external-link') }} http://{{ node_name }}:{{ port }}</a>
                   </td>
                 </tr>
               {% endfor %}

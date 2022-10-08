@@ -302,6 +302,13 @@ def update(service, node_name):
     return flask.redirect(flask.url_for("index"))
 
 
+@app.route("/apply_settings", methods=["POST"])
+def apply_settings():
+    global refresh_rate
+    refresh_rate = flask.request.form.get("refresh_rate")
+    return flask.redirect(flask.url_for("index"))
+
+
 @app.route("/")
 def index():
     print(services.config)
@@ -316,6 +323,7 @@ def index():
         services=services,
         out=out,
         nodes=nodes,
+        refresh_rate=refresh_rate,
     )
 
 
@@ -326,4 +334,6 @@ def main(services_yaml):
 
 
 if __name__ == "__main__":
+    global refresh_rate
+    refresh_rate = None
     argh.dispatch_command(main)
