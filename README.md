@@ -7,6 +7,8 @@
 - everything in one configuration file
 - simple: no agent on worker nodes, no overlay network, no containers, no certificate management, no RBAC, etc
 
+## screenshot
+
 <img src="https://i.imgur.com/Kht8aMT.png">
 
 ## configuration files
