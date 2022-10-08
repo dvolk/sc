@@ -1,7 +1,6 @@
 import subprocess
 import collections
 import pathlib
-import tempfile
 
 import yaml
 import flask
@@ -22,13 +21,23 @@ class Node:
         self.node_name = node_name
         self.mem_used = None
         self.mem_avail = None
+        self.mem_warn = None
         self.load = None
         self.cpus = None
-        self.df = dict()
+        self.cpu_warn = None
+        self.df = []
+        self.is_up = None
+        self.warnings = 0
 
     def update_metrics(self):
+        self.is_up = True
         mem_cmd = ["ssh", self.node_name, "free"]
-        mem_cmd_out_words = lines_words(subprocess.check_output(mem_cmd))
+        try:
+            mem_cmd_out_words = lines_words(subprocess.check_output(mem_cmd))
+        except subprocess.CalledProcessError:
+            self.is_up = False
+            self.warnings += 1
+            return
         self.mem_used = int(int(mem_cmd_out_words[1][2]) // 1e3)
         self.mem_avail = int(int(mem_cmd_out_words[1][1]) // 1e3)
         load_cmd = ["ssh", self.node_name, "uptime"]
@@ -39,24 +48,50 @@ class Node:
         cpus_cmd_out_words = subprocess.check_output(cpus_cmd).decode().split()
         self.cpus = cpus_cmd_out_words.count("vendor_id")
         df_cmd = ["ssh", self.node_name, "df"]
-        df_out_words = lines_words(subprocess.check_output(df_cmd)[1:-1])
-        print(df_out_words)
-        self.df = {
-            line[0]: line
-            for line in df_out_words
-            if line[0].startswith("/dev/sd") or line[0].startswith("/dev/mapper")
-        }
+        df_out_words = lines_words(subprocess.check_output(df_cmd))[1:-1]
+        self.mem_warn = False
+        if int(self.mem_used) > 0.45 * int(self.mem_avail):
+            self.mem_warn = True
+            self.warnings += 1
+        self.cpu_warn = False
+        if float(self.load) > 0.75 * int(self.cpus):
+            self.cpu_warn = True
+            self.warnings += 1
+        for df_data in df_out_words:
+            device = df_data[0]
+            mounted_on = " ".join(df_data[5:])
+            used_gb = int(df_data[2]) / 1000000
+            avail_gb = int(df_data[3]) / 1000000
+            total_gb = used_gb + avail_gb
+            percent_used = (used_gb / total_gb) * 100
+            if not (device.startswith("/dev/sd") or device.startswith("/dev/mapper")):
+                continue
+            self.df.append(
+                {
+                    "mounted_on": mounted_on,
+                    "used_gb": used_gb,
+                    "total_gb": total_gb,
+                    "percent_used": percent_used,
+                    "warn": percent_used > 75,
+                }
+            )
+            warn = percent_used > 75
+            if warn:
+                self.warnings += 1
 
 
 class Nodes:
     def __init__(self, node_names):
         self.nodes = []
+        self.warnings = 0
         for node_name in node_names:
             self.nodes.append(Node(node_name))
 
     def update(self):
+        self.warnings = 0
         for node in self.nodes:
             node.update_metrics()
+            self.warnings += node.warnings
 
 
 class Service:
@@ -119,12 +154,16 @@ class Service:
         subprocess.check_output(cmd)
         with open(f"/tmp/{self.name}.deploy.sh", "w") as f:
             f.write(self.deploy_script)
-        cmd = ["scp", f"/tmp/{self.name}.deploy.sh", f"{node_name}:/tmp/"]
+        cmd = [
+            "scp",
+            f"/tmp/{self.name}.deploy.sh",
+            f"{node_name}:/tmp/sc.{self.name}.deploy.sh",
+        ]
         subprocess.check_output(cmd)
         cmd = [
             "ssh",
             node_name,
-            f"bash /tmp/{self.name}.deploy.sh > /tmp/{self.name}.deploy.stdout &",
+            f"bash /tmp/sc.{self.name}.deploy.sh > /tmp/{self.name}.deploy.stdout &",
         ]
         print(cmd)
         subprocess.check_output(cmd)
@@ -141,12 +180,16 @@ class Service:
         subprocess.check_output(cmd)
         with open(f"/tmp/{self.name}.delete.sh", "w") as f:
             f.write(self.delete_script)
-        cmd = ["scp", f"/tmp/{self.name}.delete.sh", f"{node_name}:/tmp/"]
+        cmd = [
+            "scp",
+            f"/tmp/{self.name}.delete.sh",
+            f"{node_name}:/tmp/sc.{self.name}.delete.sh",
+        ]
         subprocess.check_output(cmd)
         cmd = [
             "ssh",
             node_name,
-            f"bash /tmp/{self.name}.delete.sh > /tmp/{self.name}.delete.stdout &",
+            f"bash /tmp/sc.{self.name}.delete.sh > /tmp/{self.name}.delete.stdout &",
         ]
         print(cmd)
         subprocess.check_output(cmd)
@@ -162,6 +205,7 @@ class Services:
         self.all = []
         self.by_name = dict()
         self.by_node = collections.defaultdict(list)
+        self.warnings = 0
         self._config_changed()
 
     def _config_changed(self):
@@ -173,8 +217,12 @@ class Services:
                 self.by_node[node_name].append(service)
 
     def update_service_status(self):
+        self.warnings = 0
         for service in self.all:
             service.update_status_on_all_nodes()
+            self.warnings += list(service.status.values()).count("inactive") + list(
+                service.status.values()
+            ).count("unknown")
 
     def get_node_names(self):
         return self.by_node.keys()
@@ -262,7 +310,13 @@ def index():
     nodes = Nodes(services.get_node_names())
     nodes.update()
     print(nodes.nodes[0].__dict__)
-    return flask.render_template("services.jinja2", out=out, nodes=nodes)
+    print(nodes.warnings)
+    return flask.render_template(
+        "services.jinja2",
+        services=services,
+        out=out,
+        nodes=nodes,
+    )
 
 
 def main(services_yaml):
