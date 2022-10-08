@@ -3,10 +3,11 @@
 - manage services on multiple hosts
 - one-click deployments and updates
 - memory, load and disk space monitoring
-- single file configuration
 - uses just systemd and ssh
+- everything in one configuration file
+- simple: no agent on worker nodes, no overlay network, no containers, no certificate management, no RBAC, etc
 
-<img src="https://i.imgur.com/Vf3Z04V.png">
+<img src="https://i.imgur.com/Kht8aMT.png">
 
 ## configuration files
 
