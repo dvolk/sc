@@ -1,3 +1,5 @@
+"""Sc is a distributed service manager."""
+
 import subprocess
 import collections
 import pathlib
@@ -10,6 +12,7 @@ app = flask.Flask(__name__)
 
 
 def lines_words(text):
+    """Return array of lines split into array of words."""
     out = list()
     for line in text.decode().split("\n"):
         out.append(line.split())
@@ -17,7 +20,10 @@ def lines_words(text):
 
 
 class Node:
+    """Class encapsulating a worker node for purpose of collecting metrics."""
+
     def __init__(self, node_name):
+        """Initialize class variables."""
         self.node_name = node_name
         self.mem_used = None
         self.mem_avail = None
@@ -30,6 +36,7 @@ class Node:
         self.warnings = 0
 
     def update_metrics(self):
+        """Update worker node metrics by running commands over ssh."""
         self.is_up = True
         mem_cmd = ["ssh", self.node_name, "free"]
         try:
@@ -81,13 +88,17 @@ class Node:
 
 
 class Nodes:
+    """Class for storing a collection of worker nodes."""
+
     def __init__(self, node_names):
+        """Initialize class variables."""
         self.nodes = []
         self.warnings = 0
         for node_name in node_names:
             self.nodes.append(Node(node_name))
 
     def update(self):
+        """Update metrics on all nodes."""
         self.warnings = 0
         for node in self.nodes:
             node.update_metrics()
@@ -95,7 +106,10 @@ class Nodes:
 
 
 class Service:
+    """Class encapsulating a service (accross all worker nodes)."""
+
     def __init__(self, service_dict):
+        """Initialize class variables."""
         self.name = service_dict["name"]
         self.nodes = service_dict.get("nodes", [])
         self.deploy_script = service_dict.get("deploy", None)
@@ -105,6 +119,7 @@ class Service:
         self.status = dict()
 
     def update_status_on_node(self, node_name):
+        """Update the service status on a node by running systemctl status."""
         cmd = ["ssh", node_name, "systemctl", "--no-page", "status", self.name]
         p = subprocess.run(cmd, stdout=subprocess.PIPE)
         if p.returncode == 0:
@@ -115,33 +130,39 @@ class Service:
             self.status[node_name] = "unknown"
 
     def update_status_on_all_nodes(self):
+        """Update service status on all nodes."""
         for node_name in self.nodes:
             self.update_status_on_node(node_name)
 
-    def restart(self, node_name):
-        cmd = ["ssh", node_name, "systemctl", "restart", self.name]
-        subprocess.check_output(cmd)
-
-    def stop(self, node_name):
-        cmd = ["ssh", node_name, "systemctl", "stop", self.name]
-        subprocess.check_output(cmd)
-
     def start(self, node_name):
+        """Start service on node by running systemctl start."""
         cmd = ["ssh", node_name, "systemctl", "start", self.name]
         subprocess.check_output(cmd)
 
+    def stop(self, node_name):
+        """Stop service on node by running systemctl stop."""
+        cmd = ["ssh", node_name, "systemctl", "stop", self.name]
+        subprocess.check_output(cmd)
+
+    def restart(self, node_name):
+        """Restart service on node by running systemctl restart."""
+        cmd = ["ssh", node_name, "systemctl", "restart", self.name]
+        subprocess.check_output(cmd)
+
     def open_terminal_shell(self, node_name):
+        """Open a terminal shell on a node."""
         cmd = f"ssh {node_name}"
         term_cmd = ["x-terminal-emulator", "-e", cmd]
         subprocess.Popen(term_cmd)
 
     def open_terminal_log(self, node_name):
+        """Open a terminal with the systemd service log on a node."""
         cmd = f"ssh {node_name} journalctl -fu {self.name}"
         term_cmd = ["x-terminal-emulator", "-e", cmd]
         subprocess.Popen(term_cmd)
 
     def deploy(self, node_name):
-        """Run deploy script, if it exists in the config file."""
+        """Run deploy script for service on node."""
         with open(f"/tmp/{self.name}.service", "w") as f:
             f.write(self.systemd_unit)
         cmd = [
@@ -171,7 +192,7 @@ class Service:
         subprocess.check_output(cmd)
 
     def delete(self, node_name):
-        # run delete script if it exists
+        """Run delete deployment script for service on node."""
         cmd = ["ssh", node_name, f"systemctl stop {self.name}.service"]
         subprocess.run(cmd)
         cmd = ["ssh", node_name, f"rm /lib/systemd/system/{self.name}.service"]
@@ -195,12 +216,16 @@ class Service:
         subprocess.check_output(cmd)
 
     def update(self, node_name):
+        """Update service on node by running delete and then deploy."""
         self.delete()
         self.deploy()
 
 
 class Services:
+    """Class encapsulating a collection of services."""
+
     def __init__(self, conf_str):
+        """Initialize class variables."""
         self.config = yaml.safe_load(conf_str)
         self.all = []
         self.by_name = dict()
@@ -209,6 +234,7 @@ class Services:
         self._config_changed()
 
     def _config_changed(self):
+        """Update class variables to be done when the config changes."""
         for service_dict in self.config.get("services", []):
             service = Service(service_dict)
             self.all.append(service)
@@ -217,6 +243,7 @@ class Services:
                 self.by_node[node_name].append(service)
 
     def update_service_status(self):
+        """Update services status on all nodes."""
         self.warnings = 0
         for service in self.all:
             service.update_status_on_all_nodes()
@@ -225,6 +252,7 @@ class Services:
             ).count("unknown")
 
     def get_node_names(self):
+        """Return all node names."""
         return self.by_node.keys()
 
 
@@ -245,6 +273,7 @@ def inject_globals():
 
 
 def make_service_node_dict():
+    """Make a dict[dict] to be used by the dashboard."""
     out = collections.defaultdict(dict)
     for service in services.all:
         print(service.nodes)
@@ -254,56 +283,65 @@ def make_service_node_dict():
     return out
 
 
-@app.route("/restart/<service>/<node_name>")
-def restart(service, node_name):
-    services.by_name[service].restart(node_name)
+@app.route("/start/<service>/<node_name>")
+def start(service, node_name):
+    """Start service on node endpoint."""
+    services.by_name[service].start(node_name)
     return flask.redirect(flask.url_for("index"))
 
 
 @app.route("/stop/<service>/<node_name>")
 def stop(service, node_name):
+    """Stop service on node endpoint."""
     services.by_name[service].stop(node_name)
     return flask.redirect(flask.url_for("index"))
 
 
-@app.route("/start/<service>/<node_name>")
-def start(service, node_name):
-    services.by_name[service].start(node_name)
+@app.route("/restart/<service>/<node_name>")
+def restart(service, node_name):
+    """Restart service on node endpoint."""
+    services.by_name[service].restart(node_name)
     return flask.redirect(flask.url_for("index"))
 
 
 @app.route("/open_terminal_log/<service>/<node_name>")
 def open_terminal_log(service, node_name):
+    """Open terminal log on node endpoint."""
     services.by_name[service].open_terminal_log(node_name)
     return flask.redirect(flask.url_for("index"))
 
 
 @app.route("/open_terminal_shell/<service>/<node_name>")
 def open_terminal_shell(service, node_name):
+    """Open terminal shell on node endpoint."""
     services.by_name[service].open_terminal_shell(node_name)
     return flask.redirect(flask.url_for("index"))
 
 
 @app.route("/deploy/<service>/<node_name>")
 def deploy(service, node_name):
+    """Deploy service on node endpoint."""
     services.by_name[service].deploy(node_name)
     return flask.redirect(flask.url_for("index"))
 
 
 @app.route("/delete/<service>/<node_name>")
 def delete(service, node_name):
+    """Delete service on node endpoint."""
     services.by_name[service].delete(node_name)
     return flask.redirect(flask.url_for("index"))
 
 
 @app.route("/update/<service>/<node_name>")
 def update(service, node_name):
+    """Update service on node endpoint."""
     services.by_name[service].update(node_name)
     return flask.redirect(flask.url_for("index"))
 
 
 @app.route("/apply_settings", methods=["POST"])
 def apply_settings():
+    """Save dashboard page settings endpoint."""
     global refresh_rate
     refresh_rate = flask.request.form.get("refresh_rate")
     return flask.redirect(flask.url_for("index"))
@@ -311,6 +349,7 @@ def apply_settings():
 
 @app.route("/")
 def index():
+    """Dashboard index endpoint."""
     print(services.config)
     services.update_service_status()
     out = make_service_node_dict()
@@ -328,6 +367,7 @@ def index():
 
 
 def main(services_yaml):
+    """Start sc web service."""
     global services
     services = Services(pathlib.Path(services_yaml).read_text())
     app.run(port=1234, debug=True)
@@ -335,5 +375,5 @@ def main(services_yaml):
 
 if __name__ == "__main__":
     global refresh_rate
-    refresh_rate = None
+    refresh_rate = ""
     argh.dispatch_command(main)
