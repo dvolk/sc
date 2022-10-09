@@ -19,6 +19,12 @@ def lines_words(text):
     return out
 
 
+MEM_USED_WARN_PCT: float = 0.45
+CPU_LOAD_WARN_PCT: float = 0.75
+DISK_USED_WARN_PCT: float = 0.80
+ACKNOWLEDGED_ALERTS: set[str] = set()
+
+
 class Node:
     """Class encapsulating a worker node for purpose of collecting metrics."""
 
@@ -49,7 +55,6 @@ class Node:
         self.mem_avail = int(int(mem_cmd_out_words[1][1]) // 1e3)
         load_cmd = ["ssh", self.node_name, "uptime"]
         load_cmd_out_words = lines_words(subprocess.check_output(load_cmd))
-        print(load_cmd_out_words)
         self.load = float(load_cmd_out_words[0][-3][:-1])
         cpus_cmd = ["ssh", self.node_name, "cat /proc/cpuinfo"]
         cpus_cmd_out_words = subprocess.check_output(cpus_cmd).decode().split()
@@ -57,20 +62,22 @@ class Node:
         df_cmd = ["ssh", self.node_name, "df"]
         df_out_words = lines_words(subprocess.check_output(df_cmd))[1:-1]
         self.mem_warn = False
-        if int(self.mem_used) > 0.45 * int(self.mem_avail):
+        if int(self.mem_used) > MEM_USED_WARN_PCT * int(self.mem_avail):
             self.mem_warn = True
-            self.warnings += 1
+            if not is_node_alert_acked(self.node_name, "mem"):
+                self.warnings += 1
         self.cpu_warn = False
-        if float(self.load) > 0.75 * int(self.cpus):
+        if float(self.load) > CPU_LOAD_WARN_PCT * int(self.cpus):
             self.cpu_warn = True
-            self.warnings += 1
+            if not is_node_alert_acked(self.node_name, "cpu_load"):
+                self.warnings += 1
         for df_data in df_out_words:
             device = df_data[0]
             mounted_on = " ".join(df_data[5:])
             used_gb = int(df_data[2]) / 1000000
             avail_gb = int(df_data[3]) / 1000000
             total_gb = used_gb + avail_gb
-            percent_used = (used_gb / total_gb) * 100
+            percent_used = used_gb / total_gb
             if not (device.startswith("/dev/sd") or device.startswith("/dev/mapper")):
                 continue
             self.df.append(
@@ -79,12 +86,13 @@ class Node:
                     "used_gb": used_gb,
                     "total_gb": total_gb,
                     "percent_used": percent_used,
-                    "warn": percent_used > 75,
+                    "warn": percent_used > DISK_USED_WARN_PCT,
                 }
             )
-            warn = percent_used > 75
-            if warn:
-                self.warnings += 1
+            if percent_used > DISK_USED_WARN_PCT:
+                mounted_on_nice = mounted_on.replace("/", "-")
+                if not is_node_alert_acked(self.node_name, mounted_on_nice):
+                    self.warnings += 1
 
 
 class Nodes:
@@ -247,9 +255,11 @@ class Services:
         self.warnings = 0
         for service in self.all:
             service.update_status_on_all_nodes()
-            self.warnings += list(service.status.values()).count("inactive") + list(
-                service.status.values()
-            ).count("unknown")
+            for node_name, status in service.status.items():
+                print(node_name, status)
+                if status != "active":
+                    if not is_service_alert_acked(service.name, node_name):
+                        self.warnings = +1
 
     def get_node_names(self):
         """Return all node names."""
@@ -276,10 +286,8 @@ def make_service_node_dict():
     """Make a dict[dict] to be used by the dashboard."""
     out = collections.defaultdict(dict)
     for service in services.all:
-        print(service.nodes)
         for node_name in service.nodes:
             out[service.name][node_name] = service
-    print(out)
     return out
 
 
@@ -355,8 +363,6 @@ def index():
     out = make_service_node_dict()
     nodes = Nodes(services.get_node_names())
     nodes.update()
-    print(nodes.nodes[0].__dict__)
-    print(nodes.warnings)
     return flask.render_template(
         "services.jinja2",
         services=services,
@@ -371,6 +377,24 @@ def main(services_yaml):
     global services
     services = Services(pathlib.Path(services_yaml).read_text())
     app.run(port=1234, debug=True)
+
+
+@app.route("/toggle_acknowledge_alert/<service_name>/<node_name>/<node_alert_type>")
+def toggle_acknowledge_alert(service_name, node_name, node_alert_type):
+    elem = service_name + node_name + node_alert_type
+    if elem in ACKNOWLEDGED_ALERTS:
+        ACKNOWLEDGED_ALERTS.remove(elem)
+    else:
+        ACKNOWLEDGED_ALERTS.add(elem)
+    return flask.redirect(flask.url_for("index"))
+
+
+def is_service_alert_acked(service_name, node_name):
+    return service_name + node_name + "-" in ACKNOWLEDGED_ALERTS
+
+
+def is_node_alert_acked(node_name, node_alert_type):
+    return "-" + node_name + node_alert_type in ACKNOWLEDGED_ALERTS
 
 
 if __name__ == "__main__":

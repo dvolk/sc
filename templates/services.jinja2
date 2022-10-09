@@ -77,10 +77,13 @@
           {% for node_name, service in services_on_nodes.items() %}
             <tr>
               <td>
-                {{ icon('server') }} {{ node_name }}
+                {{ icon('cube') }} {{ node_name }}
               </td>
               <td style="text-align: right">
-                {{ status_string(service.status[node_name]) }}&nbsp;&nbsp;
+                <a href="{{ url_for('toggle_acknowledge_alert', service_name=service_name, node_name=node_name, node_alert_type='-') }}">
+                  {{ status_string(service.status[node_name]) }}
+                </a>
+                  &nbsp;&nbsp;
                 <span class="button-group">
                   <a title="start service" href="{{ url_for('start', service=service.name, node_name=node_name) }}">{{ icon('play') }}</a>
                   <a title="stop service" href="{{ url_for('stop', service=service.name, node_name=node_name) }}">{{ icon('stop') }}</a>
@@ -95,7 +98,7 @@
                     {{ icon('rocket') }}
                   </a>
                   <a title="delete deployment" {% if not (service.delete and service.systemd_unit) %} class="isDisabled" {% else %} href="{{ url_for('delete', service=service.name, node_name=node_name) }}" {% endif %}>{{ icon('eraser') }}</a>
-                  <a title="update deployment" {% if not (service.delete and service.deploy and service.systemd_unit) %} class="isDisabled" {% else %} href="{{ url_for('update', service=service.name, node_name=node_name) }}" {% endif %}>{{ icon('recycle') }}</a>
+                  <a title="update deployment" {% if not (service.delete and service.deploy and service.systemd_unit) %} class="isDisabled" {% else %} href="{{ url_for('update', service=service.name, node_name=node_name) }}" {% endif %}>{{ icon('repeat') }}</a>
                 </span>
               </td>
             </tr>
@@ -115,7 +118,7 @@
   </div>
 
   <div class="w3-container w3-half w3-panel w3-white" style="padding-right: 30px; padding: 10px 20px;">
-    <h2>{{ icon('building') }} Nodes {% if nodes.warnings %}<span style="padding: 0 10px; float:right" class="w3-red">Warnings: {{ nodes.warnings }}</span>{% endif %}</h2>
+    <h2>{{ icon('cubes') }} Nodes {% if nodes.warnings %}<span style="padding: 0 10px; float:right" class="w3-red">Warnings: {{ nodes.warnings }}</span>{% endif %}</h2>
     {% for node in nodes.nodes %}
       <div style="padding-bottom: 3px">
       {% set mem_status_symbol = "" %}
@@ -130,13 +133,21 @@
         {% if not node.is_up %}
           <span class='blink'>{{ icon('exclamation-triangle') }} DOWN! {{ icon('exclamation-triangle') }}</span>
         {% endif %}
-          {{ icon('server') }} {{ node.node_name }}
+          {{ icon('cube') }} {{ node.node_name }}
       </h3>
       <span title="node memory usage">
-        &nbsp;{{ icon('microchip') }} {{ mem_status_symbol }} {{ node.mem_used }} / {{ node.mem_avail }} MB
+        &nbsp;{{ icon('microchip') }}
+        <a href="{{ url_for('toggle_acknowledge_alert', service_name='-', node_name=node.node_name, node_alert_type='mem') }}">
+          {{ mem_status_symbol }}
+        </a>
+        {{ node.mem_used }} / {{ node.mem_avail }} MB
       </span>
       <span title='node CPU usage based on average load' style="float: right">
-        {{ icon('area-chart') }} {{ cpu_status_symbol }} {{ node.load }} load / {{ node.cpus }} CPUs
+        {{ icon('area-chart') }}
+        <a href="{{ url_for('toggle_acknowledge_alert', service_name='-', node_name=node.node_name, node_alert_type='cpu') }}">
+          {{ cpu_status_symbol }}
+        </a>
+        {{ node.load }} load / {{ node.cpus }} CPUs
       </span>
       {% for df_data in node.df %}
         {% set status_symbol = "" %}
@@ -144,7 +155,12 @@
           {% set status_symbol = "<span class='w3-red'>" + icon('exclamation-triangle') + "</span>" %}
         {% endif %}
         <p style="padding-right: 10px">
-          <span title="node mount point" class="truncate">&nbsp;&nbsp; {{ icon('hdd-o') }} {{ status_symbol }} {{ df_data['mounted_on'] }}</span>
+          <span title="node mount point" class="truncate">&nbsp;&nbsp; {{ icon('hdd-o') }}
+            {% set mounted_on_nice = df_data['mounted_on']|replace('/','-') %}
+            <a href="{{ url_for('toggle_acknowledge_alert', service_name='-', node_name=node.node_name, node_alert_type=mounted_on_nice) }}">
+              {{ status_symbol }}
+            </a>
+            {{ df_data['mounted_on'] }}</span>
           <span title="node mount point usage" class="truncate" style="float: right">{{ df_data['used_gb']|round|int }} GB / {{ df_data['total_gb']|round|int }} GB</span>
         </p>
       {% endfor %}
