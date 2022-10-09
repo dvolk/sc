@@ -20,8 +20,8 @@ def lines_words(text):
 
 
 MEM_USED_WARN_PCT: float = 0.45
-CPU_LOAD_WARN_PCT: float = 0.75
-DISK_USED_WARN_PCT: float = 0.80
+CPU_LOAD_WARN_PCT: float = 0.5
+DISK_USED_WARN_PCT: float = 0.90
 ACKNOWLEDGED_ALERTS: set[str] = set()
 
 
