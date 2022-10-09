@@ -10,7 +10,7 @@
 
 ## screenshot
 
-<img src="https://i.imgur.com/Kht8aMT.png">
+<img src="https://i.imgur.com/E5ubuGL.png">
 
 ## configuration files
 
