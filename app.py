@@ -80,16 +80,17 @@ class Node:
             percent_used = used_gb / total_gb
             if not (device.startswith("/dev/sd") or device.startswith("/dev/mapper")):
                 continue
+            warn = percent_used > DISK_USED_WARN_PCT and avail_gb < 10
             self.df.append(
                 {
                     "mounted_on": mounted_on,
                     "used_gb": used_gb,
                     "total_gb": total_gb,
                     "percent_used": percent_used,
-                    "warn": percent_used > DISK_USED_WARN_PCT,
+                    "warn": warn,
                 }
             )
-            if percent_used > DISK_USED_WARN_PCT:
+            if warn:
                 mounted_on_nice = mounted_on.replace("/", "-")
                 if not is_node_alert_acked(self.node_name, mounted_on_nice):
                     self.warnings += 1
