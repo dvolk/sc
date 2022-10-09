@@ -381,6 +381,10 @@ def main(services_yaml):
 
 @app.route("/toggle_acknowledge_alert/<service_name>/<node_name>/<node_alert_type>")
 def toggle_acknowledge_alert(service_name, node_name, node_alert_type):
+    """Endpoint to toggle alert.
+
+    If the argument does not apply to the alert type, pass '-' for that argument.
+    """
     elem = service_name + node_name + node_alert_type
     if elem in ACKNOWLEDGED_ALERTS:
         ACKNOWLEDGED_ALERTS.remove(elem)
@@ -390,10 +394,12 @@ def toggle_acknowledge_alert(service_name, node_name, node_alert_type):
 
 
 def is_service_alert_acked(service_name, node_name):
+    """Return if the service alert is acknowledged."""
     return service_name + node_name + "-" in ACKNOWLEDGED_ALERTS
 
 
 def is_node_alert_acked(node_name, node_alert_type):
+    """Return if the node alert is acknowledged."""
     return "-" + node_name + node_alert_type in ACKNOWLEDGED_ALERTS
 
 
