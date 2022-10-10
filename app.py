@@ -44,7 +44,7 @@ class Node:
     def update_metrics(self):
         """Update worker node metrics by running commands over ssh."""
         self.is_up = True
-        mem_cmd = ["ssh", self.node_name, "free"]
+        mem_cmd = ["ssh", "-oConnectTimeout=3", self.node_name, "free"]
         try:
             mem_cmd_out_words = lines_words(subprocess.check_output(mem_cmd))
         except subprocess.CalledProcessError:
