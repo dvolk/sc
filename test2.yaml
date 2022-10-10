@@ -34,6 +34,16 @@ services:
       - sc-node-5i3O4.lxd
       - sc-node-FrOg2.lxd
       - sc-node-dx5Z0.lxd
-  - name: mongodb
+  - name: mongod
+    unit: |
     nodes:
-      - eclipse
+      - sc-node-5i3O4.lxd
+    deploy: |
+      wget -nc http://archive.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1f-1ubuntu2_amd64.deb
+      dpkg -i libssl1.1_1.1.1f-1ubuntu2_amd64.deb
+      wget -nc https://repo.mongodb.org/apt/ubuntu/dists/focal/mongodb-org/6.0/multiverse/binary-amd64/mongodb-org-server_6.0.2_amd64.deb
+      dpkg -i mongodb-org-server_6.0.2_amd64.deb
+      systemctl restart mongod
+    delete: |
+      systemctl stop mongod
+      apt purge -y mongodb-org-server
