@@ -184,6 +184,7 @@ class Service:
             cmd = ["ssh", node_name, "systemctl daemon-reload"]
             subprocess.check_output(cmd)
         with open(f"/tmp/{self.name}.deploy.sh", "w") as f:
+            f.write("set -x\n\n")
             f.write(self.deploy_script)
         cmd = [
             "scp",
@@ -212,6 +213,7 @@ class Service:
             cmd = ["ssh", node_name, "systemctl daemon-reload"]
             subprocess.check_output(cmd)
         with open(f"/tmp/{self.name}.delete.sh", "w") as f:
+            f.write("set -x\n\n")
             f.write(self.delete_script)
         cmd = [
             "scp",
