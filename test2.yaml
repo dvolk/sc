@@ -1,6 +1,7 @@
 services:
   - name: sshd
     nodes:
+      - eclipse
       - sc-node-5i3O4.lxd
       - sc-node-FrOg2.lxd
       - sc-node-dx5Z0.lxd
@@ -9,6 +10,7 @@ services:
       [Unit]
       Description=Catboard port 7777
       [Service]
+      Environment=CATBOARD_SQLALCHEMY_DATABASE_URI=postgresql://postgres:postgres@10.116.104.22:5432/postgres
       WorkingDirectory=/root/catboard
       ExecStart=/root/catboard/env/bin/python /root/catboard/app.py --host 0.0.0.0 --port 7777
     nodes:
@@ -26,24 +28,28 @@ services:
       python3 -m venv env
       source /root/catboard/env/bin/activate
       pip3 install -r requirements.txt
-      flask db upgrade
+      CATBOARD_SQLALCHEMY_DATABASE_URI=postgresql://postgres:postgres@10.116.104.22:5432/postgres flask db upgrade
     delete: |
       rm -rf /root/catboard
-  - name: cron
+  - name: docker.postgres
     nodes:
       - sc-node-5i3O4.lxd
-      - sc-node-FrOg2.lxd
-      - sc-node-dx5Z0.lxd
-  - name: mongod
     unit: |
-    nodes:
-      - sc-node-5i3O4.lxd
+      [Unit]
+      After=docker.service
+      Requires=docker.service
+      [Service]
+      TimeoutStartSec=0
+      Restart=always
+      ExecStartPre=-/usr/bin/docker stop %n
+      ExecStartPre=-/usr/bin/docker rm %n
+      ExecStartPre=/usr/bin/docker pull postgres
+      ExecStart=/usr/bin/docker run -p 5432:5432 -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres --rm --name %n postgres
+      [Install]
+      WantedBy=multi-user.target
     deploy: |
-      wget -nc http://archive.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1f-1ubuntu2_amd64.deb
-      dpkg -i libssl1.1_1.1.1f-1ubuntu2_amd64.deb
-      wget -nc https://repo.mongodb.org/apt/ubuntu/dists/focal/mongodb-org/6.0/multiverse/binary-amd64/mongodb-org-server_6.0.2_amd64.deb
-      dpkg -i mongodb-org-server_6.0.2_amd64.deb
-      systemctl restart mongod
+      apt update
+      apt install -y docker.io
     delete: |
-      systemctl stop mongod
-      apt purge -y mongodb-org-server
+      docker stop postgres
+      docker rm postgres
