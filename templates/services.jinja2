@@ -94,11 +94,11 @@
                   <a title="open terminal" href="{{ url_for('open_terminal_shell', service=service.name, node_name=node_name) }}">{{ icon('terminal') }}</a>
                 </span>
                 <span class="button-group">
-                  <a title="start deployment" {% if not (service.deploy and service.systemd_unit) %} class="isDisabled" {% else %} href="{{ url_for('deploy', service=service.name, node_name=node_name) }}" {% endif %}>
+                  <a title="start deployment" {% if not service.deploy_script %} class="isDisabled" {% else %} href="{{ url_for('deploy', service=service.name, node_name=node_name) }}" {% endif %}>
                     {{ icon('rocket') }}
                   </a>
-                  <a title="delete deployment" {% if not (service.delete and service.systemd_unit) %} class="isDisabled" {% else %} href="{{ url_for('delete', service=service.name, node_name=node_name) }}" {% endif %}>{{ icon('eraser') }}</a>
-                  <a title="update deployment" {% if not (service.delete and service.deploy and service.systemd_unit) %} class="isDisabled" {% else %} href="{{ url_for('update', service=service.name, node_name=node_name) }}" {% endif %}>{{ icon('repeat') }}</a>
+                  <a title="delete deployment" {% if not service.delete_script %} class="isDisabled" {% else %} href="{{ url_for('delete', service=service.name, node_name=node_name) }}" {% endif %}>{{ icon('eraser') }}</a>
+                  <a title="update deployment" {% if not (service.delete_script and service.deploy_script) %} class="isDisabled" {% else %} href="{{ url_for('update', service=service.name, node_name=node_name) }}" {% endif %}>{{ icon('repeat') }}</a>
                 </span>
               </td>
             </tr>

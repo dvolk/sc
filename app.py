@@ -172,16 +172,17 @@ class Service:
 
     def deploy(self, node_name):
         """Run deploy script for service on node."""
-        with open(f"/tmp/{self.name}.service", "w") as f:
-            f.write(self.systemd_unit)
-        cmd = [
-            "scp",
-            f"/tmp/{self.name}.service",
-            f"{node_name}:/lib/systemd/system/{self.name}.service",
-        ]
-        subprocess.check_output(cmd)
-        cmd = ["ssh", node_name, "systemctl daemon-reload"]
-        subprocess.check_output(cmd)
+        if self.systemd_unit:
+            with open(f"/tmp/{self.name}.service", "w") as f:
+                f.write(self.systemd_unit)
+            cmd = [
+                "scp",
+                f"/tmp/{self.name}.service",
+                f"{node_name}:/lib/systemd/system/{self.name}.service",
+            ]
+            subprocess.check_output(cmd)
+            cmd = ["ssh", node_name, "systemctl daemon-reload"]
+            subprocess.check_output(cmd)
         with open(f"/tmp/{self.name}.deploy.sh", "w") as f:
             f.write(self.deploy_script)
         cmd = [
@@ -197,17 +198,19 @@ class Service:
         ]
         print(cmd)
         subprocess.check_output(cmd)
-        cmd = ["ssh", node_name, f"systemctl start {self.name}.service"]
-        subprocess.check_output(cmd)
+        if self.systemd_unit:
+            cmd = ["ssh", node_name, f"systemctl start {self.name}.service"]
+            subprocess.check_output(cmd)
 
     def delete(self, node_name):
         """Run delete deployment script for service on node."""
-        cmd = ["ssh", node_name, f"systemctl stop {self.name}.service"]
-        subprocess.run(cmd)
-        cmd = ["ssh", node_name, f"rm /lib/systemd/system/{self.name}.service"]
-        subprocess.run(cmd)
-        cmd = ["ssh", node_name, "systemctl daemon-reload"]
-        subprocess.check_output(cmd)
+        if self.systemd_unit:
+            cmd = ["ssh", node_name, f"systemctl stop {self.name}.service"]
+            subprocess.run(cmd)
+            cmd = ["ssh", node_name, f"rm /lib/systemd/system/{self.name}.service"]
+            subprocess.run(cmd)
+            cmd = ["ssh", node_name, "systemctl daemon-reload"]
+            subprocess.check_output(cmd)
         with open(f"/tmp/{self.name}.delete.sh", "w") as f:
             f.write(self.delete_script)
         cmd = [
@@ -260,7 +263,7 @@ class Services:
                 print(node_name, status)
                 if status != "active":
                     if not is_service_alert_acked(service.name, node_name):
-                        self.warnings = +1
+                        self.warnings += 1
 
     def get_node_names(self):
         """Return all node names."""
