@@ -229,8 +229,8 @@ class Service:
 
     def update(self, node_name):
         """Update service on node by running delete and then deploy."""
-        self.delete()
-        self.deploy()
+        self.delete(node_name)
+        self.deploy(node_name)
 
 
 class Services:
