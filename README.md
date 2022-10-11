@@ -16,8 +16,8 @@
 ## Installing and running sc (Ubuntu 22.04)
 
 ```
-apt install -y python3-pip python3-venv git
 apt update
+apt install -y python3-pip python3-venv git
 git clone https://github.com/dvolk/sc
 cd sc
 python3 -m venv env
