@@ -37,7 +37,7 @@ Open browser to http://localhost:1234
 
 ## Node requirements
 
-To use `sc` to manage services and deployments, the username running `sc` must be able to ssh into the nodes using the node names as the `root` user, without any authentication or other challenge. There are no other prerequisites for nodes, other than those you impose in your deployment scripts.
+To use `sc` to manage services and deployments, the username running `sc` must be able to ssh into the nodes using the node names as the `root` user, without any authentication or other challenge. This usually just means you need to copy `~/.ssh/id_rsa.pub` to `/root/.ssh/authorized_keys` on the nodes. There are no other prerequisites for nodes, other than those you impose in your deployment scripts.
 
 Using ssh connection multiplexing is recommended for performance. This will allow `sc` to use those connections to run commands on the nodes quickly.
 
