@@ -1,26 +1,50 @@
 services:
-  - name: sshd
+
+  - name: catboard
     nodes:
-      - eclipse
+      - node-rxf4pz
+      - node-soafr7
+      - node-v2qg2r
     unit: |
       [Unit]
       Description=Catboard port 7777
       [Service]
+      Environment=CATBOARD_SQLALCHEMY_DATABASE_URI=postgresql://postgres:postgres@10.30.195.247:5432/postgres
       WorkingDirectory=/root/catboard
-      ExecStart=/root/env/bin/python /root/catboard/app.py --port 7777
+      ExecStart=/root/catboard/env/bin/python /root/catboard/app.py --host 0.0.0.0 --port 7777
+    ports:
+      - 7777
     deploy: |
-      apt install python3-pip
+      apt update
+      apt install -y python3-pip python3-venv git
+      rm -rf /root/catboard
       git clone https://github.com/dvolk/catboard /root/catboard
       cd /root/catboard
-      python3 -venv env
-      source env/bin/activate
+      python3 -m venv env
+      source /root/catboard/env/bin/activate
       pip3 install -r requirements.txt
-      flask db upgrade
+      CATBOARD_SQLALCHEMY_DATABASE_URI=postgresql://postgres:postgres@10.30.195.247:5432/postgres flask db upgrade
     delete: |
       rm -rf /root/catboard
-  - name: mongodb
+  - name: docker.postgres
     nodes:
-      - eclipse
-  - name: ModemManager
-    nodes:
-      - eclipse
+      - node-v2qg2r
+    unit: |
+      [Unit]
+      After=docker.service
+      Requires=docker.service
+      [Service]
+      TimeoutStartSec=0
+      Restart=always
+      ExecStartPre=-/usr/bin/docker stop %n
+      ExecStartPre=-/usr/bin/docker rm %n
+      ExecStartPre=/usr/bin/docker pull postgres
+      ExecStart=/usr/bin/docker run -p 5432:5432 -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres --rm --name %n postgres
+      [Install]
+      WantedBy=multi-user.target
+    deploy: |
+      apt update
+      apt install -y docker.io
+    delete: |
+      docker stop postgres
+      docker rm postgres
