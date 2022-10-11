@@ -364,7 +364,8 @@ def apply_settings():
 @app.route("/")
 def index():
     """Dashboard index endpoint."""
-    print(services.config)
+    global services
+    services = Services(pathlib.Path(services_yaml).read_text())
     services.update_service_status()
     out = make_service_node_dict()
     nodes = Nodes(services.get_node_names())
@@ -378,10 +379,10 @@ def index():
     )
 
 
-def main(services_yaml):
+def main(services_yaml_):
     """Start sc web service."""
-    global services
-    services = Services(pathlib.Path(services_yaml).read_text())
+    global services_yaml
+    services_yaml = services_yaml_
     app.run(port=1234, debug=True)
 
 
