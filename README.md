@@ -13,6 +13,28 @@
 
 <img src="https://i.imgur.com/ECjHDn7.png">
 
+## Installing and running sc (Ubuntu 22.04)
+
+```
+apt install -y python3-pip python3-venv git
+apt update
+git clone https://github.com/dvolk/sc
+cd sc
+python3 -m venv env
+source env/bin/activate
+pip3 install argh flask pyyaml
+```
+
+Now create a service yaml file, see `test1.yaml`, `test2.yaml` and `test3.yaml` for examples. See below for notes about worker nodes and service configuration.
+
+Run by giving the yaml file as an argument:
+
+```
+python3 app.py yourservices.yaml
+```
+
+Open browser to http://localhost:1234
+
 ## Node requirements
 
 To use `sc` to manage services and deployments, the username running `sc` must be able to ssh into the nodes using the node names as the `root` user, without any authentication or other challenge. There are no other prerequisites for nodes, other than those you impose in your deployment scripts.
