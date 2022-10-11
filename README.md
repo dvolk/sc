@@ -15,9 +15,9 @@
 
 ## Node requirements
 
-To use sc to manage services and deployments, the username running sc must be able to ssh into the nodes using the node names as the `root` user, without any authentication or other challenge. There are no other prerequisites for nodes, other than those you impose in your deployment scripts.
+To use `sc` to manage services and deployments, the username running `sc` must be able to ssh into the nodes using the node names as the `root` user, without any authentication or other challenge. There are no other prerequisites for nodes, other than those you impose in your deployment scripts.
 
-Using control master connections is recommended for performance. This will allow `sc` to use those connections to run commands on the nodes quickly.
+Using ssh connection multiplexing is recommended for performance. This will allow `sc` to use those connections to run commands on the nodes quickly.
 
 Here is an example `.ssh/config`:
 
@@ -42,7 +42,7 @@ Host sc-node-dx5Z0.lxd
 
 ## Service configuration
 
-sc is configured with a yaml file which contains a list of services. A service is a dictionary.
+`sc` is configured with a yaml file which contains a list of services. A service is a dictionary.
 
 A service must have a name, and a list of nodes that it is to be deployed at or is present at. The name must be the same as the systemd unit.
 
@@ -111,7 +111,7 @@ services:
 
 #### Using docker containers
 
-You can use systemd to wrap a docker container, for example:
+You can use a systemd service to wrap a docker container, for example:
 
 ```
   - name: docker.postgres
