@@ -78,7 +78,11 @@ class Node:
             avail_gb = int(df_data[3]) / 1000000
             total_gb = used_gb + avail_gb
             percent_used = used_gb / total_gb
-            if not (device.startswith("/dev/sd") or device.startswith("/dev/mapper")):
+            if not (
+                device.startswith("/dev/sd")
+                or device.startswith("/dev/mapper")
+                or device.startswith("/dev/vd")
+            ):
                 continue
             warn = percent_used > DISK_USED_WARN_PCT and avail_gb < 10
             self.df.append(
