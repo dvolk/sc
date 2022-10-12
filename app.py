@@ -3,6 +3,7 @@
 import subprocess
 import collections
 import pathlib
+import datetime
 
 import yaml
 import flask
@@ -300,6 +301,7 @@ class Services:
 
 
 services = None
+search_filter = None
 
 
 def icon(name):
@@ -383,8 +385,15 @@ def update(service, node_name):
 @app.route("/apply_settings", methods=["POST"])
 def apply_settings():
     """Save dashboard page settings endpoint."""
-    global refresh_rate
-    refresh_rate = flask.request.form.get("refresh_rate")
+    print(flask.request.form)
+    if flask.request.form.get("Submit") == "Submit_apply":
+        global refresh_rate
+        refresh_rate = flask.request.form.get("refresh_rate")
+    if flask.request.form.get("Submit") == "Submit_search":
+        global search_filter
+        search_filter = flask.request.form.get("search_filter").strip()
+        print(search_filter)
+        print(type(search_filter))
     return flask.redirect(flask.url_for("index"))
 
 
@@ -403,14 +412,8 @@ def index():
         out=out,
         nodes=nodes,
         refresh_rate=refresh_rate,
+        search_filter=search_filter,
     )
-
-
-def main(services_yaml_):
-    """Start sc web service."""
-    global services_yaml
-    services_yaml = services_yaml_
-    app.run(port=1234, debug=True)
 
 
 @app.route("/toggle_acknowledge_alert/<service_name>/<node_name>/<node_alert_type>")
@@ -435,6 +438,49 @@ def is_service_alert_acked(service_name, node_name):
 def is_node_alert_acked(node_name, node_alert_type):
     """Return if the node alert is acknowledged."""
     return "-" + node_name + node_alert_type in ACKNOWLEDGED_ALERTS
+
+
+def is_ok_config(sc_config):
+    """Check if the argument string is a valid config."""
+    try:
+        yaml.safe_load(sc_config)
+        return True
+    except Exception as e:
+        print(e)
+        return False
+
+
+@app.route("/config", methods=["GET", "POST"])
+def config():
+    """Config view/post endpoint."""
+    global services_yaml
+    if flask.request.method == "GET":
+        sc_config = pathlib.Path(services_yaml).read_text()
+
+        return flask.render_template(
+            "config.jinja2",
+            sc_config=sc_config,
+        )
+    if flask.request.method == "POST":
+        print(flask.request.form)
+        if flask.request.form.get("Submit") == "Submit_cancel":
+            return flask.redirect(flask.url_for("index"))
+        if flask.request.form.get("Submit") == "Submit_save":
+            unsafe_sc_config = flask.request.form.get("new_config")
+            time_now = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            with open(f"./config_{time_now}.yaml", "w") as f:
+                f.write(unsafe_sc_config)
+            if not is_ok_config(unsafe_sc_config):
+                return flask.redirect(flask.url_for("config"))
+            services_yaml = f"./config_{time_now}.yaml"
+            return flask.redirect(flask.url_for("index"))
+
+
+def main(services_yaml_):
+    """Start sc web service."""
+    global services_yaml
+    services_yaml = services_yaml_
+    app.run(port=1234, debug=True)
 
 
 if __name__ == "__main__":

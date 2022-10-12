@@ -74,13 +74,13 @@
       <div class="ib">
         <p>
           <br/>
-          <button class="w3-btn w3-blue">{{ icon('circle-o') }} Apply</button>
+          <button name="Submit" value="Submit_apply" class="w3-btn w3-blue">{{ icon('circle-o') }} Apply</button>
         </p>
       </div>
       <div class="ib">
         <p>
           <br/>
-          <button style="margin-left: 10px;" class="w3-btn w3-blue">{{ icon('edit') }} Edit Config</button>
+          <a href="/config" style="margin-left: 10px;" class="w3-btn w3-blue">{{ icon('edit') }} Config</a>
         </p>
       </div>
 
@@ -94,10 +94,16 @@
       </div>
 
 
-      <div class="ib" style="float: right">
+      <div class="ib" style="float: right;">
         <p>
-          <label>Search:
-          <input class="w3-input"></input>
+          <br/>
+           <button name="Submit" value="Submit_search" class="w3-btn w3-blue">{{ icon('search') }} Search</button>
+        </p>
+      </div>
+      <div class="ib" style="float: right; padding-right: 5px;">
+        <p>
+          <br/>
+          <input {% if search_filter %} value="{{ search_filter }}"{% endif %} name="search_filter" placeholder="service or node" class="w3-input"></input>
         </p>
       </div>
     </form>
@@ -105,7 +111,7 @@
 
   <div class="w3-container w3-half w3-panel w3-white" style="padding: 10px 20px;">
     <h2>{{ icon('cogs') }} Services {% if services.warnings %}<span style="padding: 0 10px; float:right" class="w3-red">Warnings: {{ services.warnings }}</span>{% endif %}</h2>
-    {% for service_name, services_on_nodes in out.items() %}
+    {% for service_name, services_on_nodes in out.items() if not search_filter or search_filter in service_name %}
       <h3>{{ icon('circle-thin') }} {{ service_name }}</h3>
       <table class="w3-table">
         <tbody>
@@ -171,8 +177,8 @@
       {{ nodes.total_df_used_gb|round|int }} GB / {{ nodes.total_df_total_gb|round|int }} GB
     </span>
     </p>
-
-    {% for node in nodes.nodes %}
+    {% set nodes_ = nodes.nodes %} {# Otherwise the filter doesn't work. But why? node.node_name is not accessible if we're iterating over nodes.nodes? #}
+    {% for node in nodes_ if not search_filter or search_filter in node.node_name %}
       <div style="padding-bottom: 3px">
       {% set mem_status_symbol = "" %}
       {% if node.mem_warn %}
