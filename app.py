@@ -85,6 +85,8 @@ class Node:
                 or device.startswith("/dev/vd")
             ):
                 continue
+            if mounted_on == "/boot/efi":
+                continue
             warn = percent_used > DISK_USED_WARN_PCT and avail_gb < 10
             self.df.append(
                 {
