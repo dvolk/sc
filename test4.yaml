@@ -1,0 +1,69 @@
+all_nodes: &all_nodes
+  - sc-node-5i3O4.lxd
+  - sc-node-FrOg2.lxd
+  - sc-node-dx5Z0.lxd
+
+postgres_node: &postgres_node
+  - sc-node-5i3O4.lxd
+
+catboard_unit: &catboard_unit |
+  [Unit]
+  Description=Catboard port 7777
+  [Service]
+  Environment=CATBOARD_SQLALCHEMY_DATABASE_URI=postgresql://postgres:postgres@10.116.104.22:5432/postgres
+  WorkingDirectory=/root/catboard
+  ExecStart=/root/catboard/env/bin/python /root/catboard/app.py --host 0.0.0.0 --port 7777
+
+catboard_deploy: &catboard_deploy |
+  apt update
+  apt install -y python3-pip python3-venv git
+  rm -rf /root/catboard
+  git clone https://github.com/dvolk/catboard /root/catboard
+  cd /root/catboard
+  python3 -m venv env
+  source /root/catboard/env/bin/activate
+  pip3 install -r requirements.txt
+  CATBOARD_SQLALCHEMY_DATABASE_URI=postgresql://postgres:postgres@10.116.104.22:5432/postgres flask db upgrade
+
+catboard_delete: &catboard_delete |
+  rm -rf /root/catboard
+
+postgres_docker_unit: &postgres_docker_unit |
+  [Unit]
+  After=docker.service
+  Requires=docker.service
+  [Service]
+  TimeoutStartSec=0
+  Restart=always
+  ExecStartPre=-/usr/bin/docker stop %n
+  ExecStartPre=-/usr/bin/docker rm %n
+  ExecStartPre=/usr/bin/docker pull postgres
+  ExecStart=/usr/bin/docker run -p 5432:5432 -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres --rm --name %n postgres
+  [Install]
+  WantedBy=multi-user.target
+
+postgres_docker_deploy: &postgres_docker_deploy |
+  apt update
+  apt install -y docker.io
+
+postgres_docker_delete: &postgres_docker_delete |
+  docker stop postgres
+  docker rm postgres
+
+services:
+  - name: sshd
+    nodes: *all_nodes
+
+  - name: catboard
+    unit: *catboard_unit
+    nodes: *all_nodes
+    ports:
+      - 7777
+    deploy: *catboard_deploy
+    delete: *catboard_delete
+
+  - name: docker.postgres
+    nodes: *postgres_node
+    unit: *postgres_docker_unit
+    deploy: *postgres_docker_deploy
+    delete: *postgres_docker_delete
