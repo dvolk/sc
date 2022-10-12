@@ -31,14 +31,14 @@ class Node:
     def __init__(self, node_name):
         """Initialize class variables."""
         self.node_name = node_name
-        self.mem_used = None
-        self.mem_avail = None
-        self.mem_warn = None
-        self.load = None
-        self.cpus = None
-        self.cpu_warn = None
+        self.mem_used = 0
+        self.mem_avail = 0
+        self.mem_warn = 0
+        self.load = 0
+        self.cpus = 0
+        self.cpu_warn = 0
         self.df = []
-        self.is_up = None
+        self.is_up = True
         self.warnings = 0
 
     def update_metrics(self):
