@@ -1,15 +1,17 @@
 services:
-
+  - name: clamav-freshclam
+    nodes:
+      - localhost
   - name: catboard
     nodes:
-      - node-rxf4pz
-      - node-soafr7
-      - node-v2qg2r
+      - 172.16.100.177
+      - 172.16.100.99
+      - 172.16.100.101
     unit: |
       [Unit]
       Description=Catboard port 7777
       [Service]
-      Environment=CATBOARD_SQLALCHEMY_DATABASE_URI=postgresql://postgres:postgres@10.30.195.247:5432/postgres
+      Environment=CATBOARD_SQLALCHEMY_DATABASE_URI=postgresql://postgres:tKmLiIeBBXxXwzVg1W6S@172.16.100.101:5432/postgres
       WorkingDirectory=/root/catboard
       ExecStart=/root/catboard/env/bin/python /root/catboard/app.py --host 0.0.0.0 --port 7777
     ports:
@@ -23,12 +25,12 @@ services:
       python3 -m venv env
       source /root/catboard/env/bin/activate
       pip3 install -r requirements.txt
-      CATBOARD_SQLALCHEMY_DATABASE_URI=postgresql://postgres:postgres@10.30.195.247:5432/postgres flask db upgrade
+      CATBOARD_SQLALCHEMY_DATABASE_URI=postgresql://postgres:tKmLiIeBBXxXwzVg1W6S@172.16.100.101:5432/postgres flask db upgrade
     delete: |
       rm -rf /root/catboard
   - name: docker.postgres
     nodes:
-      - node-v2qg2r
+      - 172.16.100.101
     unit: |
       [Unit]
       After=docker.service
@@ -39,7 +41,7 @@ services:
       ExecStartPre=-/usr/bin/docker stop %n
       ExecStartPre=-/usr/bin/docker rm %n
       ExecStartPre=/usr/bin/docker pull postgres
-      ExecStart=/usr/bin/docker run -p 5432:5432 -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres --rm --name %n postgres
+      ExecStart=/usr/bin/docker run -p 5432:5432 -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=tKmLiIeBBXxXwzVg1W6S --rm --name %n postgres
       [Install]
       WantedBy=multi-user.target
     deploy: |
