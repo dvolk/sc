@@ -44,7 +44,7 @@ class Node:
     def update_metrics(self):
         """Update worker node metrics by running commands over ssh."""
         self.is_up = True
-        mem_cmd = ["ssh", "-oConnectTimeout=3", self.node_name, "free"]
+        mem_cmd = ["ssh", "-oConnectTimeout=3", "root@" + self.node_name, "free"]
         try:
             mem_cmd_out_words = lines_words(subprocess.check_output(mem_cmd))
         except subprocess.CalledProcessError:
@@ -53,13 +53,13 @@ class Node:
             return
         self.mem_used = int(int(mem_cmd_out_words[1][2]) // 1e3)
         self.mem_avail = int(int(mem_cmd_out_words[1][1]) // 1e3)
-        load_cmd = ["ssh", self.node_name, "uptime"]
+        load_cmd = ["ssh", "root@" + self.node_name, "uptime"]
         load_cmd_out_words = lines_words(subprocess.check_output(load_cmd))
         self.load = float(load_cmd_out_words[0][-3][:-1])
-        cpus_cmd = ["ssh", self.node_name, "cat /proc/cpuinfo"]
+        cpus_cmd = ["ssh", "root@" + self.node_name, "cat /proc/cpuinfo"]
         cpus_cmd_out_words = subprocess.check_output(cpus_cmd).decode().split()
         self.cpus = cpus_cmd_out_words.count("vendor_id")
-        df_cmd = ["ssh", self.node_name, "df"]
+        df_cmd = ["ssh", "root@" + self.node_name, "df"]
         df_out_words = lines_words(subprocess.check_output(df_cmd))[1:-1]
         self.mem_warn = False
         if int(self.mem_used) > MEM_USED_WARN_PCT * int(self.mem_avail):
@@ -129,7 +129,14 @@ class Service:
 
     def update_status_on_node(self, node_name):
         """Update the service status on a node by running systemctl status."""
-        cmd = ["ssh", node_name, "systemctl", "--no-page", "status", self.name]
+        cmd = [
+            "ssh",
+            "root@" + node_name,
+            "systemctl",
+            "--no-page",
+            "status",
+            self.name,
+        ]
         p = subprocess.run(cmd, stdout=subprocess.PIPE)
         if p.returncode == 0:
             self.status[node_name] = "active"
@@ -145,28 +152,28 @@ class Service:
 
     def start(self, node_name):
         """Start service on node by running systemctl start."""
-        cmd = ["ssh", node_name, "systemctl", "start", self.name]
+        cmd = ["ssh", "root@" + node_name, "systemctl", "start", self.name]
         subprocess.check_output(cmd)
 
     def stop(self, node_name):
         """Stop service on node by running systemctl stop."""
-        cmd = ["ssh", node_name, "systemctl", "stop", self.name]
+        cmd = ["ssh", "root@" + node_name, "systemctl", "stop", self.name]
         subprocess.check_output(cmd)
 
     def restart(self, node_name):
         """Restart service on node by running systemctl restart."""
-        cmd = ["ssh", node_name, "systemctl", "restart", self.name]
+        cmd = ["ssh", "root@" + node_name, "systemctl", "restart", self.name]
         subprocess.check_output(cmd)
 
     def open_terminal_shell(self, node_name):
         """Open a terminal shell on a node."""
-        cmd = f"ssh {node_name}"
+        cmd = f"ssh root@{node_name}"
         term_cmd = ["x-terminal-emulator", "-e", cmd]
         subprocess.Popen(term_cmd)
 
     def open_terminal_log(self, node_name):
         """Open a terminal with the systemd service log on a node."""
-        cmd = f"ssh {node_name} journalctl -fu {self.name}"
+        cmd = f"ssh root@{node_name} journalctl -fu {self.name}"
         term_cmd = ["x-terminal-emulator", "-e", cmd]
         subprocess.Popen(term_cmd)
 
@@ -178,10 +185,10 @@ class Service:
             cmd = [
                 "scp",
                 f"/tmp/{self.name}.service",
-                f"{node_name}:/lib/systemd/system/{self.name}.service",
+                f"root@{node_name}:/lib/systemd/system/{self.name}.service",
             ]
             subprocess.check_output(cmd)
-            cmd = ["ssh", node_name, "systemctl daemon-reload"]
+            cmd = ["ssh", "root@" + node_name, "systemctl daemon-reload"]
             subprocess.check_output(cmd)
         with open(f"/tmp/{self.name}.deploy.sh", "w") as f:
             f.write("set -x\n\n")
@@ -189,28 +196,32 @@ class Service:
         cmd = [
             "scp",
             f"/tmp/{self.name}.deploy.sh",
-            f"{node_name}:/tmp/sc.{self.name}.deploy.sh",
+            f"root@{node_name}:/tmp/sc.{self.name}.deploy.sh",
         ]
         subprocess.check_output(cmd)
         cmd = [
             "ssh",
-            node_name,
+            "root@" + node_name,
             f"bash /tmp/sc.{self.name}.deploy.sh > /tmp/{self.name}.deploy.stdout &",
         ]
         print(cmd)
         subprocess.check_output(cmd)
         if self.systemd_unit:
-            cmd = ["ssh", node_name, f"systemctl start {self.name}.service"]
+            cmd = ["ssh", "root@" + node_name, f"systemctl start {self.name}.service"]
             subprocess.check_output(cmd)
 
     def delete(self, node_name):
         """Run delete deployment script for service on node."""
         if self.systemd_unit:
-            cmd = ["ssh", node_name, f"systemctl stop {self.name}.service"]
+            cmd = ["ssh", "root@" + node_name, f"systemctl stop {self.name}.service"]
             subprocess.run(cmd)
-            cmd = ["ssh", node_name, f"rm /lib/systemd/system/{self.name}.service"]
+            cmd = [
+                "ssh",
+                "root@" + node_name,
+                f"rm /lib/systemd/system/{self.name}.service",
+            ]
             subprocess.run(cmd)
-            cmd = ["ssh", node_name, "systemctl daemon-reload"]
+            cmd = ["ssh", "root@" + node_name, "systemctl daemon-reload"]
             subprocess.check_output(cmd)
         with open(f"/tmp/{self.name}.delete.sh", "w") as f:
             f.write("set -x\n\n")
@@ -218,12 +229,12 @@ class Service:
         cmd = [
             "scp",
             f"/tmp/{self.name}.delete.sh",
-            f"{node_name}:/tmp/sc.{self.name}.delete.sh",
+            f"root@{node_name}:/tmp/sc.{self.name}.delete.sh",
         ]
         subprocess.check_output(cmd)
         cmd = [
             "ssh",
-            node_name,
+            "root@" + node_name,
             f"bash /tmp/sc.{self.name}.delete.sh > /tmp/{self.name}.delete.stdout &",
         ]
         print(cmd)
