@@ -1,0 +1,32 @@
+{% extends 'base.jinja2' %}
+
+{% block content %}
+
+<div class="w3-container w3-indigo">
+  <h2>Configuration</h2>
+</div>
+
+<div class="w3-container w3-panel w3-pale-yellow">
+
+  <form spellcheck="false" action="/config" method="POST">
+    <p>
+      Note that changes are applied to the running configuration and saved to a timestamped file. Your original configuration file will not be modified.
+    </p>
+
+    <p>
+      <button class="w3-btn w3-blue" name="Submit" value="Submit_save">
+        <i class="fa fa-save fa-fw"></i> Save
+      </button>
+      <button class="w3-btn w3-blue" name="Submit" value="Submit_cancel">
+        <i class="fa fa-times fa-fw"></i> Cancel
+      </button>
+    </p>
+    <p>
+      <textarea style="font-family:Jetbrains Mono;Consolas,Monaco,Lucida Console,Liberation Mono,DejaVu Sans Mono,Bitstream Vera Sans Mono,Courier New, monospace;" rows="25" class="w3-input" type="text" name="new_config"/>
+{{ sc_config }}</textarea>
+    </p>
+  </form>
+
+</div>
+
+{% endblock %}
