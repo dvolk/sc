@@ -408,6 +408,9 @@ def index():
     out = make_service_node_dict()
     nodes = Nodes(services.get_node_names())
     nodes.update()
+    title = "sillycat dashboard"
+    if nodes.warnings or services.warnings:
+        title = "WARN sillycat dashboard"
     return flask.render_template(
         "services.jinja2",
         services=services,
@@ -415,6 +418,7 @@ def index():
         nodes=nodes,
         refresh_rate=refresh_rate,
         search_filter=search_filter,
+        title=title,
     )
 
 
@@ -462,6 +466,7 @@ def config():
         return flask.render_template(
             "config.jinja2",
             sc_config=sc_config,
+            title="sillycat configuration",
         )
     if flask.request.method == "POST":
         print(flask.request.form)
