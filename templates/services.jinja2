@@ -25,7 +25,19 @@
   visibility: hidden;
   }
   }
+  .ib {
+  display: inline-block;
+  }
 {% endblock %}
+{% block script %}
+  function updateLastUpdated() {
+  const elem = document.getElementById("lastUpdated");
+  const seconds = parseInt(elem.textContent);
+  elem.innerHTML = seconds + 1;
+  }
+
+  setInterval(updateLastUpdated, 1000);
+{% endblock script %}
 {% block content %}
 
   {% macro status_string(s) %}
@@ -34,7 +46,7 @@
     {% elif s == "inactive" %}
       <span class="w3-red">{{ icon('exclamation-triangle') }}</span> FAILED
     {% else %}
-      <span class="w3-grey" >{{ icon('times') }}</span> UNKNOWN
+      <span class="w3-grey" >{{ icon('question-circle') }}</span> UNKNOWN
     {% endif %}
   {% endmacro %}
 
@@ -46,9 +58,9 @@
     <h2>{{ icon('dashboard') }} Dashboard</h2>
   </header>
 
-  <div class="w3-container w3-white w3-row-padding">
+  <div class="w3-container w3-white">
     <form method="POST" action="/apply_settings">
-      <div class="w3-col m4 l2">
+      <div class="ib">
         <p>
           <label>Page reload:</label>
           <select name="refresh_rate" class="w3-input">
@@ -59,10 +71,33 @@
           </select>
         </p>
       </div>
-      <div class="w3-col m4 l2">
+      <div class="ib">
         <p>
           <br/>
-          <button style="margin-left: 10px;" class="w3-btn w3-blue">Apply</button>
+          <button class="w3-btn w3-blue">{{ icon('circle-o') }} Apply</button>
+        </p>
+      </div>
+      <div class="ib">
+        <p>
+          <br/>
+          <button style="margin-left: 10px;" class="w3-btn w3-blue">{{ icon('edit') }} Edit Config</button>
+        </p>
+      </div>
+
+      <div class="ib">
+        <p>
+          <br/>
+          <span style="margin-left: 10px;">Updated
+            <span id="lastUpdated" >0</span>s ago.
+          </span>
+        </p>
+      </div>
+
+
+      <div class="ib" style="float: right">
+        <p>
+          <label>Search:
+          <input class="w3-input"></input>
         </p>
       </div>
     </form>
@@ -122,10 +157,10 @@
 
     <p>
     <span title="cluster memory usage">
-      &nbsp;{{ icon('microchip') }} {{ nodes.total_mem_used }} / {{ nodes.total_mem_avail }} MB
+      &nbsp;{{ icon('microchip') }} All {{ nodes.total_mem_used }} / {{ nodes.total_mem_avail }} MB
     </span>
     <span title='cluster CPU usage based on average load' style="float: right">
-        {{ icon('area-chart') }} {{ nodes.total_load }} load / {{ nodes.total_cpus }} CPUs
+        {{ icon('area-chart') }} All {{ nodes.total_load|round(1) }} load / {{ nodes.total_cpus }} CPUs
     </span>
     </p>
     <p>
@@ -165,7 +200,7 @@
         <a href="{{ url_for('toggle_acknowledge_alert', service_name='-', node_name=node.node_name, node_alert_type='cpu') }}">
           {{ cpu_status_symbol }}
         </a>
-        {{ node.load }} load / {{ node.cpus }} CPUs
+        {{ node.load|round(1) }} load / {{ node.cpus }} CPUs
       </span>
       {% for df_data in node.df %}
         {% set status_symbol = "" %}
