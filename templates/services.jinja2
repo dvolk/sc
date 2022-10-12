@@ -119,6 +119,24 @@
 
   <div class="w3-container w3-half w3-panel w3-white" style="padding-right: 30px; padding: 10px 20px;">
     <h2>{{ icon('cubes') }} Nodes {% if nodes.warnings %}<span style="padding: 0 10px; float:right" class="w3-red">Warnings: {{ nodes.warnings }}</span>{% endif %}</h2>
+
+    <p>
+    <span title="cluster memory usage">
+      &nbsp;{{ icon('microchip') }} {{ nodes.total_mem_used }} / {{ nodes.total_mem_avail }} MB
+    </span>
+    <span title='cluster CPU usage based on average load' style="float: right">
+        {{ icon('area-chart') }} {{ nodes.total_load }} load / {{ nodes.total_cpus }} CPUs
+    </span>
+    </p>
+    <p>
+    <span title='cluster CPU usage based on average load'>
+      &nbsp;{{ icon('hdd-o') }} All disks
+    </span>
+    <span style="float: right">
+      {{ nodes.total_df_used_gb|round|int }} GB / {{ nodes.total_df_total_gb|round|int }} GB
+    </span>
+    </p>
+
     {% for node in nodes.nodes %}
       <div style="padding-bottom: 3px">
       {% set mem_status_symbol = "" %}

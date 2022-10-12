@@ -107,6 +107,12 @@ class Nodes:
         """Initialize class variables."""
         self.nodes = []
         self.warnings = 0
+        self.total_mem_used = 0
+        self.total_mem_avail = 0
+        self.total_load = 0
+        self.total_cpus = 0
+        self.total_df_used_gb = 0
+        self.total_df_total_gb = 0
         for node_name in node_names:
             self.nodes.append(Node(node_name))
 
@@ -116,6 +122,12 @@ class Nodes:
         for node in self.nodes:
             node.update_metrics()
             self.warnings += node.warnings
+            self.total_mem_used += node.mem_used
+            self.total_mem_avail += node.mem_avail
+            self.total_load += node.load
+            self.total_cpus += node.cpus
+            self.total_df_used_gb += sum([disk["used_gb"] for disk in node.df])
+            self.total_df_total_gb += sum([disk["total_gb"] for disk in node.df])
 
 
 class Service:
