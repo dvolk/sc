@@ -9,7 +9,25 @@ import yaml
 import flask
 import argh
 
+# pyxtermjs imports
+
+import flask_socketio
+
+import pty
+import os
+import select
+import termios
+import struct
+import fcntl
+
+
 app = flask.Flask(__name__)
+app.config["SECRET_KEY"] = "secret!"
+app.config["fd"] = None
+app.config["child_pid"] = None
+app.config["cmd"] = "false"
+app.config["term_proc_exit"] = False
+socketio = flask_socketio.SocketIO(app)
 
 
 def lines_words(text):
@@ -172,97 +190,55 @@ class Service:
     def start(self, node_name):
         """Start service on node by running systemctl start."""
         cmd = ["ssh", "root@" + node_name, "systemctl", "start", self.name]
-        subprocess.check_output(cmd)
+        subprocess.run(cmd)
 
     def stop(self, node_name):
         """Stop service on node by running systemctl stop."""
         cmd = ["ssh", "root@" + node_name, "systemctl", "stop", self.name]
-        subprocess.check_output(cmd)
+        subprocess.run(cmd)
 
     def restart(self, node_name):
         """Restart service on node by running systemctl restart."""
         cmd = ["ssh", "root@" + node_name, "systemctl", "restart", self.name]
-        subprocess.check_output(cmd)
-
-    def open_terminal_shell(self, node_name):
-        """Open a terminal shell on a node."""
-        cmd = f"ssh root@{node_name}"
-        term_cmd = ["x-terminal-emulator", "-e", cmd]
-        subprocess.Popen(term_cmd)
-
-    def open_terminal_log(self, node_name):
-        """Open a terminal with the systemd service log on a node."""
-        cmd = f"ssh root@{node_name} journalctl -fu {self.name}"
-        term_cmd = ["x-terminal-emulator", "-e", cmd]
-        subprocess.Popen(term_cmd)
+        subprocess.run(cmd)
 
     def deploy(self, node_name):
-        """Run deploy script for service on node."""
+        """Return deploy script for service on node."""
+        script = "set -x\n\n"
         if self.systemd_unit:
             with open(f"/tmp/{self.name}.service", "w") as f:
                 f.write(self.systemd_unit)
-            cmd = [
-                "scp",
-                f"/tmp/{self.name}.service",
-                f"root@{node_name}:/lib/systemd/system/{self.name}.service",
-            ]
-            subprocess.check_output(cmd)
-            cmd = ["ssh", "root@" + node_name, "systemctl daemon-reload"]
-            subprocess.check_output(cmd)
+            script += f"scp /tmp/{self.name}.service root@{node_name}:/lib/systemd/system/{self.name}.service\n"
+            script += f"ssh root@{node_name} systemctl daemon-reload\n"
         with open(f"/tmp/{self.name}.deploy.sh", "w") as f:
-            f.write("set -x\n\n")
             f.write(self.deploy_script)
-        cmd = [
-            "scp",
-            f"/tmp/{self.name}.deploy.sh",
-            f"root@{node_name}:/tmp/sc.{self.name}.deploy.sh",
-        ]
-        subprocess.check_output(cmd)
-        cmd = [
-            "ssh",
-            "root@" + node_name,
-            f"bash /tmp/sc.{self.name}.deploy.sh > /tmp/{self.name}.deploy.stdout &",
-        ]
-        print(cmd)
-        subprocess.check_output(cmd)
+        script += f"scp /tmp/{self.name}.deploy.sh root@{node_name}:/tmp/sc.{self.name}.deploy.sh\n"
+        script += f"ssh root@{node_name} bash /tmp/sc.{self.name}.deploy.sh\n"
         if self.systemd_unit:
-            cmd = ["ssh", "root@" + node_name, f"systemctl start {self.name}.service"]
-            subprocess.check_output(cmd)
+            script += f"ssh root@{node_name} systemctl start {self.name}.service\n"
+        return script
 
     def delete(self, node_name):
-        """Run delete deployment script for service on node."""
+        """Return delete deployment script for service on node."""
+        script = "set -x\n\n"
         if self.systemd_unit:
-            cmd = ["ssh", "root@" + node_name, f"systemctl stop {self.name}.service"]
-            subprocess.run(cmd)
-            cmd = [
-                "ssh",
-                "root@" + node_name,
-                f"rm /lib/systemd/system/{self.name}.service",
-            ]
-            subprocess.run(cmd)
-            cmd = ["ssh", "root@" + node_name, "systemctl daemon-reload"]
-            subprocess.check_output(cmd)
+            script += f"ssh root@{node_name} systemctl stop {self.name}.service\n"
+            script += (
+                f"ssh root@{node_name} rm /lib/systemd/system/{self.name}.service\n"
+            )
+            script += f"ssh root@{node_name} systemctl daemon-reload\n"
         with open(f"/tmp/{self.name}.delete.sh", "w") as f:
             f.write("set -x\n\n")
             f.write(self.delete_script)
-        cmd = [
-            "scp",
-            f"/tmp/{self.name}.delete.sh",
-            f"root@{node_name}:/tmp/sc.{self.name}.delete.sh",
-        ]
-        subprocess.check_output(cmd)
-        cmd = [
-            "ssh",
-            "root@" + node_name,
-            f"bash /tmp/sc.{self.name}.delete.sh > /tmp/{self.name}.delete.stdout &",
-        ]
-        print(cmd)
-        subprocess.check_output(cmd)
+        script += f"scp /tmp/{self.name}.delete.sh root@{node_name}:/tmp/sc.{self.name}.delete.sh\n"
+        script += f"ssh root@{node_name} bash /tmp/sc.{self.name}.delete.sh\n"
+        return script
 
     def update(self, node_name):
-        """Update service on node by running delete and then deploy."""
-        self.delete(node_name)
-        self.deploy(node_name)
+        """Return update script for service on node by running delete and then deploy."""
+        script = self.delete(node_name)
+        script += self.deploy(node_name)
+        return script
 
 
 class Services:
@@ -349,39 +325,74 @@ def restart(service, node_name):
     return flask.redirect(flask.url_for("index"))
 
 
+def web_run_term(cmd):
+    """Start either a native or web terminal."""
+    if cfg_term_program == "xtermjs":
+        app.config["cmd"] = cmd
+        return flask.render_template("term.jinja2")
+    else:
+        term_cmd = cfg_term_program.split() + cmd
+        subprocess.Popen(term_cmd)
+        return flask.redirect(flask.url_for("index"))
+
+
 @app.route("/open_terminal_log/<service>/<node_name>")
 def open_terminal_log(service, node_name):
     """Open terminal log on node endpoint."""
-    services.by_name[service].open_terminal_log(node_name)
-    return flask.redirect(flask.url_for("index"))
+    cmd = ["ssh", "root@" + node_name, "journalctl", "-fu", service]
+    return web_run_term(cmd)
 
 
 @app.route("/open_terminal_shell/<service>/<node_name>")
 def open_terminal_shell(service, node_name):
     """Open terminal shell on node endpoint."""
-    services.by_name[service].open_terminal_shell(node_name)
-    return flask.redirect(flask.url_for("index"))
+    cmd = ["ssh", "root@" + node_name]
+    return web_run_term(cmd)
 
 
 @app.route("/deploy/<service>/<node_name>")
 def deploy(service, node_name):
     """Deploy service on node endpoint."""
-    services.by_name[service].deploy(node_name)
-    return flask.redirect(flask.url_for("index"))
+    script = services.by_name[service].deploy(node_name)
+    print(script)
+    with open(f"/tmp/deploy.{service}.{node_name}.sh", "w") as f:
+        f.write(script)
+    cmd = [
+        "bash",
+        "-c",
+        f"bash /tmp/deploy.{service}.{node_name}.sh; echo '\n\nDeploy finished\n\n'; sleep infinity",
+    ]
+    return web_run_term(cmd)
 
 
 @app.route("/delete/<service>/<node_name>")
 def delete(service, node_name):
     """Delete service on node endpoint."""
-    services.by_name[service].delete(node_name)
-    return flask.redirect(flask.url_for("index"))
+    script = services.by_name[service].delete(node_name)
+    print(script)
+    with open(f"/tmp/delete.{service}.{node_name}.sh", "w") as f:
+        f.write(script)
+    cmd = [
+        "bash",
+        "-c",
+        f"bash /tmp/delete.{service}.{node_name}.sh; echo '\n\nDelete finished\n\n'; sleep infinity",
+    ]
+    return web_run_term(cmd)
 
 
 @app.route("/update/<service>/<node_name>")
 def update(service, node_name):
     """Update service on node endpoint."""
-    services.by_name[service].update(node_name)
-    return flask.redirect(flask.url_for("index"))
+    script = services.by_name[service].update(node_name)
+    print(script)
+    with open(f"/tmp/update.{service}.{node_name}.sh", "w") as f:
+        f.write(script)
+    cmd = [
+        "bash",
+        "-c",
+        f"bash /tmp/update.{service}.{node_name}.sh; echo '\n\nUpdate finished\n\n'; sleep infinity",
+    ]
+    return web_run_term(cmd)
 
 
 @app.route("/apply_settings", methods=["POST"])
@@ -403,7 +414,7 @@ def apply_settings():
 def index():
     """Dashboard index endpoint."""
     global services
-    services = Services(pathlib.Path(services_yaml).read_text())
+    services = Services(pathlib.Path(cfg_services_yaml).read_text())
     services.update_service_status()
     out = make_service_node_dict()
     nodes = Nodes(services.get_node_names())
@@ -459,9 +470,9 @@ def is_ok_config(sc_config):
 @app.route("/config", methods=["GET", "POST"])
 def config():
     """Config view/post endpoint."""
-    global services_yaml
+    global cfg_services_yaml
     if flask.request.method == "GET":
-        sc_config = pathlib.Path(services_yaml).read_text()
+        sc_config = pathlib.Path(cfg_services_yaml).read_text()
 
         return flask.render_template(
             "config.jinja2",
@@ -479,15 +490,109 @@ def config():
                 f.write(unsafe_sc_config)
             if not is_ok_config(unsafe_sc_config):
                 return flask.redirect(flask.url_for("config"))
-            services_yaml = f"./config_{time_now}.yaml"
+            cfg_services_yaml = f"./config_{time_now}.yaml"
             return flask.redirect(flask.url_for("index"))
 
 
-def main(services_yaml_):
+# pyxtermjs functions
+
+
+@app.route("/close_terminal")
+def close_terminal():
+    """Close terminal and redirect back to index."""
+    app.config["term_proc_exit"] = True
+    os.kill(app.config["child_pid"], 15)
+    app.config["socketio_thread"].join()
+
+    return flask.redirect(flask.url_for("index"))
+
+
+def set_winsize(fd, row, col, xpix=0, ypix=0):
+    """Set window size with termios."""
+    winsize = struct.pack("HHHH", row, col, xpix, ypix)
+    fcntl.ioctl(fd, termios.TIOCSWINSZ, winsize)
+
+
+def read_and_forward_pty_output():
+    max_read_bytes = 1024 * 20
+    while True:
+        socketio.sleep(0.01)
+        if app.config["fd"]:
+            try:
+                timeout_sec = 0
+                (data_ready, _, _) = select.select(
+                    [app.config["fd"]], [], [], timeout_sec
+                )
+                if data_ready:
+                    output = os.read(app.config["fd"], max_read_bytes).decode(
+                        errors="ignore"
+                    )
+                    socketio.emit("pty-output", {"output": output}, namespace="/pty")
+            except OSError:
+                app.config["child_pid"] = None
+                app.config["fd"] = None
+                app.config["cmd"] = "false"
+                app.config["term_proc_exit"] = False
+                print("*** bye!")
+                return
+        if app.config["term_proc_exit"]:
+            app.config["child_pid"] = None
+            app.config["fd"] = None
+            app.config["cmd"] = "false"
+            app.config["term_proc_exit"] = False
+            print("*** bye!")
+            return
+
+
+@socketio.on("pty-input", namespace="/pty")
+def pty_input(data):
+    """Write to the child pty. The pty sees this as if you are typing in a real terminal."""
+    if app.config["fd"]:
+        os.write(app.config["fd"], data["input"].encode())
+
+
+@socketio.on("resize", namespace="/pty")
+def resize(data):
+    if app.config["fd"]:
+        set_winsize(app.config["fd"], data["rows"], data["cols"])
+
+
+@socketio.on("connect", namespace="/pty")
+def connect():
+    """new client connected"""
+    if app.config["child_pid"]:
+        # already started child process, don't start another
+        return
+
+    # create child process attached to a pty we can read from and write to
+    (child_pid, fd) = pty.fork()
+    if child_pid == 0:
+        # this is the child process fork.
+        # anything printed here will show up in the pty, including the output
+        # of this subprocess
+        print(app.config["cmd"])
+        subprocess.run(app.config["cmd"])
+    else:
+        # this is the parent process fork.
+        # store child fd and pid
+        app.config["fd"] = fd
+        app.config["child_pid"] = child_pid
+        set_winsize(fd, 50, 50)
+        s = socketio.start_background_task(target=read_and_forward_pty_output)
+        app.config["socketio_thread"] = s
+
+
+# end of pyxtermjs functions
+
+
+def main(services_yaml, term_program="x-terminal-emulator"):
     """Start sc web service."""
-    global services_yaml
-    services_yaml = services_yaml_
-    app.run(port=1234, debug=True)
+    global cfg_services_yaml
+    cfg_services_yaml = services_yaml
+    global cfg_term_program
+    cfg_term_program = term_program
+
+    socketio.run(app, debug=True, port=1234, host="127.0.0.1")
 
 
 if __name__ == "__main__":
