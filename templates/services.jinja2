@@ -58,6 +58,10 @@
     <h2>{{ icon('dashboard') }} Dashboard</h2>
   </header>
 
+  {#
+  // top bar
+  #}
+
   <div class="w3-container w3-white">
     <form method="POST" action="/apply_settings">
       <div class="ib">
@@ -109,6 +113,10 @@
     </form>
   </div>
 
+  {#
+  // services
+  #}
+
   <div class="w3-container w3-half w3-panel w3-white" style="padding: 10px 20px;">
     <h2>{{ icon('cogs') }} Services {% if services.warnings %}<span style="padding: 0 10px; float:right" class="w3-red">Warnings: {{ services.warnings }}</span>{% endif %}</h2>
     {% for service_name, services_on_nodes in out.items() if not search_filter or search_filter in service_name %}
@@ -157,6 +165,10 @@
       </table>
     {% endfor %}
   </div>
+
+  {#
+  // nodes
+  #}
 
   <div class="w3-container w3-half w3-panel w3-white" style="padding-right: 30px; padding: 10px 20px;">
     <h2>{{ icon('cubes') }} Nodes {% if nodes.warnings %}<span style="padding: 0 10px; float:right" class="w3-red">Warnings: {{ nodes.warnings }}</span>{% endif %}</h2>
