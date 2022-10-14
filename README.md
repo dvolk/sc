@@ -58,7 +58,26 @@ Host *
 
 ### Full example with anchors
 
-This is a full `sc` configuration example that uses yaml anchors for organisation. It deploys the `catboard` task board with `postgresql` in `docker` on 3 `LXD` nodes. The service is load balanced with `Caddy` used as a reverse proxy.
+This is a full `sc` configuration example that uses yaml anchors for organisation. It deploys the `catboard` task board with `postgresql` in `docker` on 3 `LXD` nodes. The service is load balanced with `Caddy` used as a reverse proxy. The cloud balancer set up is up to you, or you can just run a single caddy instance.
+
+```mermaid
+graph LR;
+user((user))
+lb[Cloud load-balancer]
+caddy1[Caddy sc-node-5i3O4.lxd]
+caddy2[Caddy sc-node-FrOg2.lxd]
+caddy3[Caddy sc-node-dx5Z0.lxd]
+catboard1[Catboard sc-node-5i3O4.lxd]
+catboard2[Catboard sc-node-FrOg2.lxd]
+catboard3[Catboard sc-node-dx5Z0.lxd]
+postgres[(Postgres sc-node-5i3O4.lxd)]
+subgraph Internet
+user ---> lb
+end
+subgraph Internal network
+lb ---> caddy1 & caddy2 & caddy3 ---> catboard1 & catboard2 & catboard3 ---> postgres
+end
+```
 
 ```yaml
 all_nodes: &all_nodes
