@@ -153,9 +153,13 @@
             </tr>
             {% if service.ports and service.status[node_name] == "active" %}
               {% for port in service.ports %}
+                {% set proto = "http" %}
+                {% set port_str = ":" + port|string %}
+                {% if port in [80, 8080, 8000] %} {% set proto = "http" %} {% set port_str = "" %} {% endif %}
+                {% if port in [443, 8443] %} {% set proto = "https" %} {% set port_str = "" %} {% endif %}
                 <tr>
                   <td colspan=2>
-                    &nbsp;&nbsp;<a class="w3-btn w3-small w3-green" target="_blank" href="http://{{ node_name }}:{{ port }}">{{ icon('external-link') }} http://{{ node_name }}:{{ port }}</a>
+                    &nbsp;&nbsp;<a class="w3-btn w3-small w3-green" target="_blank" href="{{ proto }}://{{ node_name }}:{{ port }}">{{ icon('external-link') }} {{ proto }}://{{ node_name }}{{ port_str }}</a>
                   </td>
                 </tr>
               {% endfor %}
