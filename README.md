@@ -11,9 +11,9 @@
 
 ## screenshot
 
-<img src="https://i.imgur.com/ECjHDn7.png">
+<img src="https://i.imgur.com/Gz4mI0o.png">
 
-## Installing and running sc (Ubuntu 22.04)
+## Installing and running sc (tested on Ubuntu 22.04)
 
 ```
 apt update
@@ -22,7 +22,7 @@ git clone https://github.com/dvolk/sc
 cd sc
 python3 -m venv env
 source env/bin/activate
-pip3 install argh flask pyyaml
+pip3 install argh flask pyyaml flask-socketio simple-websocket
 ```
 
 Now create a service yaml file, see `test1.yaml`, `test2.yaml` and `test3.yaml` for examples. See below for notes about worker nodes and service configuration.
@@ -30,8 +30,10 @@ Now create a service yaml file, see `test1.yaml`, `test2.yaml` and `test3.yaml` 
 Run by giving the yaml file as an argument:
 
 ```
-python3 app.py yourservices.yaml
+python3 app.py test4.yaml
 ```
+
+There's an optional argument `--term-program`, which can be given your preferred terminal emulator. Its default value is `x-terminal-emulator`, which should use your system terminal emulator. If you set `--term-program` to `xtermjs`, it will use the xtermjs web terminal instead of a local system terminal. This feature is a work in progress and comes with limitations compared to the system terminal.
 
 Open browser to http://localhost:1234
 
@@ -39,7 +41,7 @@ Open browser to http://localhost:1234
 
 To use `sc` to manage services and deployments, the username running `sc` must be able to ssh into the nodes using the node names as the `root` user, without any authentication or other challenge. This usually just means you need to copy `~/.ssh/id_rsa.pub` to `/root/.ssh/authorized_keys` on the nodes. There are no other prerequisites for nodes, other than those you impose in your deployment scripts.
 
-Using ssh connection multiplexing is recommended for performance. This will allow `sc` to use those connections to run commands on the nodes quickly.
+Using ssh connection multiplexing is highly recommended for performance. This will allow `sc` to use those connections to run commands on the nodes quickly.
 
 Here is an example `.ssh/config`:
 
@@ -48,23 +50,87 @@ Host *
     ControlMaster auto
     ControlPersist 24h
     ControlPath ~/.ssh/%r@%h:%p
-
-Host sc-node-5i3O4.lxd
-    Hostname 10.116.104.22
-    User root
-
-Host sc-node-FrOg2.lxd
-    Hostname 10.116.104.33
-    User root
-
-Host sc-node-dx5Z0.lxd
-    Hostname 10.116.104.8
-    User root
 ```
 
 ## Service configuration
 
 `sc` is configured with a yaml file which contains a list of services. A service is a dictionary.
+
+### Full example with anchors
+
+This is a full sc configuration example that uses yaml anchors for organisation. It deploys the catboard task board with postgresql in docker on 3 lxd nodes.
+
+```
+all_nodes: &all_nodes
+  - sc-node-5i3O4.lxd
+  - sc-node-FrOg2.lxd
+  - sc-node-dx5Z0.lxd
+
+postgres_node: &postgres_node
+  - sc-node-5i3O4.lxd
+
+catboard_unit: &catboard_unit |
+  [Unit]
+  Description=Catboard port 7777
+  [Service]
+  Environment=CATBOARD_SQLALCHEMY_DATABASE_URI=postgresql://postgres:postgres@10.116.104.22:5432/postgres
+  WorkingDirectory=/root/catboard
+  ExecStart=/root/catboard/env/bin/python /root/catboard/app.py --host 0.0.0.0 --port 7777
+
+catboard_deploy: &catboard_deploy |
+  apt update
+  apt install -y python3-pip python3-venv git
+  rm -rf /root/catboard
+  git clone https://github.com/dvolk/catboard /root/catboard
+  cd /root/catboard
+  python3 -m venv env
+  source /root/catboard/env/bin/activate
+  pip3 install -r requirements.txt
+  CATBOARD_SQLALCHEMY_DATABASE_URI=postgresql://postgres:postgres@10.116.104.22:5432/postgres flask db upgrade
+
+catboard_delete: &catboard_delete |
+  rm -rf /root/catboard
+
+postgres_docker_unit: &postgres_docker_unit |
+  [Unit]
+  After=docker.service
+  Requires=docker.service
+  [Service]
+  TimeoutStartSec=0
+  Restart=always
+  ExecStartPre=-/usr/bin/docker stop %n
+  ExecStartPre=-/usr/bin/docker rm %n
+  ExecStartPre=/usr/bin/docker pull postgres
+  ExecStart=/usr/bin/docker run -p 5432:5432 -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres --rm --name %n postgres
+  [Install]
+  WantedBy=multi-user.target
+
+postgres_docker_deploy: &postgres_docker_deploy |
+  apt update
+  apt install -y docker.io
+
+postgres_docker_delete: &postgres_docker_delete |
+  docker stop postgres
+  docker rm postgres
+
+services:
+  - name: sshd
+    nodes: *all_nodes
+
+  - name: catboard
+    unit: *catboard_unit
+    nodes: *all_nodes
+    ports:
+      - 7777
+    deploy: *catboard_deploy
+    delete: *catboard_delete
+
+  - name: docker.postgres
+    nodes: *postgres_node
+    unit: *postgres_docker_unit
+    deploy: *postgres_docker_deploy
+    delete: *postgres_docker_delete
+```
 
 A service must have a name, and a list of nodes that it is to be deployed at or is present at. The name must be the same as the systemd unit.
 
