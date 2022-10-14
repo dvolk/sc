@@ -7,7 +7,7 @@
 - uses just systemd and ssh
 - everything in one configuration file
 - simple: no "control plane", no agent on worker nodes, no overlay network, no containers, no certificate management, no RBAC, etc
-- wrap docker in systemd service (if you must)
+- wrap containers in systemd service (if you must)
 
 ## screenshot
 
@@ -58,7 +58,7 @@ Host *
 
 ### Full example with anchors
 
-This is a full sc configuration example that uses yaml anchors for organisation. It deploys the catboard task board with postgresql in docker on 3 lxd nodes.
+This is a full `sc` configuration example that uses yaml anchors for organisation. It deploys the `catboard` task board with `postgresql` in `docker` on 3 `LXD` nodes.
 
 ```
 all_nodes: &all_nodes
