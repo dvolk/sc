@@ -213,8 +213,8 @@
         {% if df_data.warn %}
           {% set status_symbol = "<span class='w3-red'>" + icon('exclamation-triangle') + "</span>" %}
         {% endif %}
-        <p style="padding-right: 10px">
-          <span title="node mount point" class="truncate">&nbsp;&nbsp; {{ icon('hdd-o') }}
+        <p>
+          <span title="node mount point" class="truncate">&nbsp;{{ icon('hdd-o') }}
             {% set mounted_on_nice = df_data['mounted_on']|replace('/','-') %}
             <a href="{{ url_for('toggle_acknowledge_alert', service_name='-', node_name=node.node_name, node_alert_type=mounted_on_nice) }}">
               {{ status_symbol }}
