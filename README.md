@@ -11,7 +11,7 @@
 
 ## screenshot
 
-<img src="https://i.imgur.com/Gz4mI0o.png">
+<img src="https://i.imgur.com/PWEsjYR.png">
 
 ## Installing and running sc (tested on Ubuntu 22.04)
 
@@ -58,7 +58,7 @@ Host *
 
 ### Full example with anchors
 
-This is a full `sc` configuration example that uses yaml anchors for organisation. It deploys the `catboard` task board with `postgresql` in `docker` on 3 `LXD` nodes.
+This is a full `sc` configuration example that uses yaml anchors for organisation. It deploys the `catboard` task board with `postgresql` in `docker` on 3 `LXD` nodes. The service is load balanced with `Caddy` used as a reverse proxy.
 
 ```
 all_nodes: &all_nodes
@@ -91,6 +91,25 @@ catboard_deploy: &catboard_deploy |
 catboard_delete: &catboard_delete |
   rm -rf /root/catboard
 
+caddy_deploy: &caddy_deploy |
+  wget -nc https://github.com/caddyserver/caddy/releases/download/v2.6.2/caddy_2.6.2_linux_amd64.deb
+  dpkg -i caddy_2.6.2_linux_amd64.deb
+  cat > /etc/caddy/Caddyfile <<"EOF"
+  :80 {
+    basicauth /* {
+      user $2a$14$UH3seHGR7r6hqtTF7WQW4eLoNYxNhZajigbWKbkbp48JY5m91ruVi
+    }
+    reverse_proxy 10.116.104.22:7777 10.116.104.33:7777 10.116.104.8:7777 {
+      fail_duration 30s
+    }
+  }
+  EOF
+  systemctl restart caddy
+
+caddy_delete: &caddy_delete |
+  systemctl stop caddy
+  apt purge -y caddy
+
 postgres_docker_unit: &postgres_docker_unit |
   [Unit]
   After=docker.service
@@ -114,14 +133,16 @@ postgres_docker_delete: &postgres_docker_delete |
   docker rm postgres
 
 services:
-  - name: sshd
+  - name: caddy
     nodes: *all_nodes
+    ports:
+      - 80
+    deploy: *caddy_deploy
+    delete: *caddy_delete
 
   - name: catboard
     unit: *catboard_unit
     nodes: *all_nodes
-    ports:
-      - 7777
     deploy: *catboard_deploy
     delete: *catboard_delete
 
