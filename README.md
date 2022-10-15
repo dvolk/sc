@@ -15,7 +15,7 @@
 
 ## Installing and running sc (tested on Ubuntu 22.04)
 
-```
+```bash
 apt update
 apt install -y python3-pip python3-venv git
 git clone https://github.com/dvolk/sc
@@ -29,7 +29,7 @@ Now create a service yaml file, see `test1.yaml`, `test2.yaml` and `test3.yaml` 
 
 Run by giving the yaml file as an argument:
 
-```
+```bash
 python3 app.py test4.yaml
 ```
 
@@ -45,7 +45,7 @@ Using ssh connection multiplexing is highly recommended for performance. This wi
 
 Here is an example `.ssh/config`:
 
-```
+```ssh-config
 Host *
     ControlMaster auto
     ControlPersist 24h
@@ -58,9 +58,28 @@ Host *
 
 ### Full example with anchors
 
-This is a full `sc` configuration example that uses yaml anchors for organisation. It deploys the `catboard` task board with `postgresql` in `docker` on 3 `LXD` nodes. The service is load balanced with `Caddy` used as a reverse proxy.
+This is a full `sc` configuration example that uses yaml anchors for organisation. It deploys the `catboard` task board with `postgresql` in `docker` on 3 `LXD` nodes. The service is load balanced with `Caddy` used as a reverse proxy. The cloud balancer set up is up to you, or you can just run a single caddy instance.
 
+```mermaid
+graph LR;
+user((user))
+lb[Cloud load-balancer]
+caddy1[Caddy sc-node-5i3O4.lxd]
+caddy2[Caddy sc-node-FrOg2.lxd]
+caddy3[Caddy sc-node-dx5Z0.lxd]
+catboard1[Catboard sc-node-5i3O4.lxd]
+catboard2[Catboard sc-node-FrOg2.lxd]
+catboard3[Catboard sc-node-dx5Z0.lxd]
+postgres[(Postgres sc-node-5i3O4.lxd)]
+subgraph Internet
+user ---> lb
+end
+subgraph Internal network
+lb ---> caddy1 & caddy2 & caddy3 ---> catboard1 & catboard2 & catboard3 ---> postgres
+end
 ```
+
+```yaml
 all_nodes: &all_nodes
   - sc-node-5i3O4.lxd
   - sc-node-FrOg2.lxd
@@ -159,7 +178,7 @@ A service must have a name, and a list of nodes that it is to be deployed at or 
 
 #### Simple service
 
-```
+```yaml
 services:
   - name: sshd
     nodes:
@@ -171,7 +190,7 @@ services:
 
 To deploy, delete and update a deployment, the service must have `deploy` and `delete` keys.
 
-```
+```yaml
   - name: mongod
     unit: |
     nodes:
@@ -191,7 +210,7 @@ To deploy, delete and update a deployment, the service must have `deploy` and `d
 
 If the deployment doesn't install a service unit file, you can add a `unit` key to the service dictionary, eg.:
 
-```
+```yaml
 services:
   - name: catboard
     unit: |
@@ -222,7 +241,8 @@ services:
 
 You can use a systemd service to wrap a docker container, for example:
 
-```
+```yaml
+services:
   - name: docker.postgres
     nodes:
       - node-v2qg2r
