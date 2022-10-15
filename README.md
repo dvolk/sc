@@ -33,7 +33,7 @@ Run by giving the yaml file as an argument:
 python3 app.py test4.yaml
 ```
 
-There's an optional argument `--term-program`, which can be given your preferred terminal emulator. Its default value is `x-terminal-emulator`, which should use your system terminal emulator. If you set `--term-program` to `xtermjs`, it will use the xtermjs web terminal instead of a local system terminal. This feature is a work in progress and comes with limitations compared to the system terminal.
+There's an optional argument `--term-program`, which can be given your preferred terminal emulator. Its default value is `x-terminal-emulator`, which should use your system terminal emulator. If you set `--term-program` to `xtermjs`, it will use the xtermjs web terminal instead of a local system terminal. This feature is a work in progress and comes with limitations compared to the system terminal. It is based on [xterm.js](https://xtermjs.org/) an [pyxtermjs](https://github.com/cs01/pyxtermjs).
 
 Open browser to http://localhost:1234
 
