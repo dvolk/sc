@@ -59,9 +59,11 @@ class Node:
         self.df = []
         self.is_up = True
         self.warnings = 0
+        self.update_time_ms = 0
 
     def update_metrics(self):
         """Update worker node metrics by running commands over ssh."""
+        time_now = datetime.datetime.now()
         self.is_up = True
         mem_cmd = ["ssh", "-oConnectTimeout=3", "root@" + self.node_name, "free"]
         try:
@@ -119,6 +121,9 @@ class Node:
                 mounted_on_nice = mounted_on.replace("/", "-")
                 if not is_node_alert_acked(self.node_name, mounted_on_nice):
                     self.warnings += 1
+        self.update_time_ms = (
+            datetime.datetime.now() - time_now
+        ).total_seconds() * 1000
 
 
 class Nodes:
