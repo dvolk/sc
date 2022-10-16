@@ -39,7 +39,6 @@
   setInterval(updateLastUpdated, 1000);
 {% endblock script %}
 {% block content %}
-
   {% macro status_string(s) %}
     {% if s == "active" %}
       <span class="w3-green">{{ icon('check-circle') }}</span> OK
@@ -84,7 +83,16 @@
       <div class="ib">
         <p>
           <br/>
-          <a href="/config" style="margin-left: 10px;" class="w3-btn w3-blue">{{ icon('edit') }} Config</a>
+          <a href="/config" style="margin-left: 5px;" class="w3-btn w3-blue">{{ icon('edit') }} Config</a>
+        </p>
+      </div>
+
+      <div class="ib">
+        <p>
+          <br/>
+          <span>
+            <a href="/toggle_mermaid_diagram" class="w3-btn w3-blue">{{ icon('th') }} Diagram</a>
+          </span>
         </p>
       </div>
 
@@ -97,13 +105,13 @@
         </p>
       </div>
 
-
       <div class="ib" style="float: right;">
         <p>
           <br/>
            <button name="Submit" value="Submit_search" class="w3-btn w3-blue">{{ icon('search') }} Search</button>
         </p>
       </div>
+
       <div class="ib" style="float: right; padding-right: 5px;">
         <p>
           <br/>
@@ -113,11 +121,27 @@
     </form>
   </div>
 
+  {% if mermaid_diagram %}
+    <script src="/static/mermaid.min.js"></script>
+    <script>
+      mermaid.initialize({ startOnLoad: true });
+    </script>
+
+    <div class="w3-container w3-panel w3-white">
+      <p>
+        <div class="mermaid">
+          {{- mermaid_diagram -}}
+          {{- mermaid_postamble -}}
+        </div>
+      </p>
+    </div>
+  {% endif %}
+
   {#
   // services
   #}
 
-  <div class="w3-container w3-half w3-panel w3-white" style="padding: 10px 20px;">
+  <div class="w3-container w3-half w3-white {% if not mermaid_diagram %} w3-panel {% endif %}" style="padding: 10px 20px;">
     <h2>{{ icon('cogs') }} Services {% if services.warnings %}<span style="padding: 0 10px; float:right" class="w3-red">Warnings: {{ services.warnings }}</span>{% endif %}</h2>
     {% for service_name, services_on_nodes in out.items() if not search_filter or search_filter in service_name %}
       <h3>{{ icon('circle-thin') }} {{ service_name }}</h3>
@@ -174,7 +198,7 @@
   // nodes
   #}
 
-  <div class="w3-container w3-half w3-panel w3-white" style="padding-right: 30px; padding: 10px 20px;">
+  <div class="w3-container w3-half w3-white {% if not mermaid_diagram %} w3-panel {% endif %}" style="padding-right: 30px; padding: 10px 20px;">
     <h2>{{ icon('cubes') }} Nodes {% if nodes.warnings %}<span style="padding: 0 10px; float:right" class="w3-red">Warnings: {{ nodes.warnings }}</span>{% endif %}</h2>
 
     <p>
@@ -242,5 +266,4 @@
       </div>
     {% endfor %}
   </div>
-
 {% endblock %}
