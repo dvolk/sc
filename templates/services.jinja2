@@ -99,6 +99,15 @@
       <div class="ib">
         <p>
           <br/>
+          <span>
+            <a href="/toggle_tables" class="w3-btn w3-blue">{{ icon('th') }} Tables</a>
+          </span>
+        </p>
+      </div>
+
+      <div class="ib">
+        <p>
+          <br/>
           <span style="margin-left: 10px;">Updated
             <span id="lastUpdated" >0</span>s ago.
           </span>
@@ -140,6 +149,8 @@
   {#
   // services
   #}
+
+  {% if cfg_draw_tables %}
 
   <div class="w3-container w3-half w3-white {% if not mermaid_diagram %} w3-panel {% endif %}" style="padding: 10px 20px;">
     <h2>{{ icon('cogs') }} Services {% if services.warnings %}<span style="padding: 0 10px; float:right" class="w3-red">Warnings: {{ services.warnings }}</span>{% endif %}</h2>
@@ -266,4 +277,6 @@
       </div>
     {% endfor %}
   </div>
+
+  {% endif %} {# if cfg_draw_tables #}
 {% endblock %}

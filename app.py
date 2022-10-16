@@ -44,6 +44,11 @@ CPU_LOAD_WARN_PCT: float = 0.5
 DISK_USED_WARN_PCT: float = 0.90
 ACKNOWLEDGED_ALERTS: set[str] = set()
 
+services = None
+search_filter = None
+cfg_draw_tables = True
+cfg_draw_mermaid_diagram = True
+
 
 class Node:
     """Class encapsulating a worker node for purpose of collecting metrics."""
@@ -283,10 +288,6 @@ class Services:
         return self.by_node.keys()
 
 
-services = None
-search_filter = None
-
-
 def icon(name):
     """Format html for fontawesome icons."""
     return f'<i class="fa fa-{name} fa-fw"></i>'
@@ -468,6 +469,7 @@ def index():
         mermaid_diagram=mermaid_diagram,
         mermaid_postamble=mermaid_postamble,
         cfg_draw_mermaid_diagram=cfg_draw_mermaid_diagram,
+        cfg_draw_tables=cfg_draw_tables,
     )
 
 
@@ -490,6 +492,14 @@ def toggle_mermaid_diagram():
     """Endpoint to toggle mermaid diagram drawing."""
     global cfg_draw_mermaid_diagram
     cfg_draw_mermaid_diagram = not cfg_draw_mermaid_diagram
+    return flask.redirect(flask.url_for("index"))
+
+
+@app.route("/toggle_tables")
+def toggle_tables():
+    """Endpoint to toggle mermaid diagram drawing."""
+    global cfg_draw_tables
+    cfg_draw_tables = not cfg_draw_tables
     return flask.redirect(flask.url_for("index"))
 
 
@@ -631,14 +641,12 @@ def connect():
 # end of pyxtermjs functions
 
 
-def main(services_yaml, term_program="x-terminal-emulator", draw_mermaid_diagram=False):
+def main(services_yaml, term_program="x-terminal-emulator"):
     """Start sc web service."""
     global cfg_services_yaml
     cfg_services_yaml = services_yaml
     global cfg_term_program
     cfg_term_program = term_program
-    global cfg_draw_mermaid_diagram
-    cfg_draw_mermaid_diagram = draw_mermaid_diagram
     socketio.run(app, debug=True, port=1234, host="127.0.0.1")
 
 
