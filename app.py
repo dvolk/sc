@@ -8,6 +8,7 @@ import datetime
 import yaml
 import flask
 import argh
+import re
 
 # pyxtermjs imports
 
@@ -415,11 +416,36 @@ def apply_settings():
     return flask.redirect(flask.url_for("index"))
 
 
+def process_mermaid_diagram(config, nodes, services):
+    """Set colors for the nodes in the mermaid diagram."""
+    service_names = [service["name"] for service in config.get("services")]
+    node_names = services.get_node_names()
+    diagram_lines = config.get("mermaid_diagram").split("\n")
+    out = ["classDef good fill:#9f9;", "classDef bad fill:#f99;"]
+    for diagram_line in diagram_lines:
+        m = re.match(r"(.*)\[(.*) (.*)\]", diagram_line)
+        if m:
+            item_mermaid_id = m.group(1)
+            item_service_name = m.group(2)
+            item_node_name = m.group(3)
+            if item_service_name in service_names and item_node_name in node_names:
+                item_service_status = services.by_name[item_service_name].status[
+                    item_node_name
+                ]
+                if item_service_status == "active":
+                    out.append(f"class {item_mermaid_id} good;")
+                else:
+                    out.append(f"class {item_mermaid_id} bad;")
+    return "\n".join(out)
+
+
 @app.route("/")
 def index():
     """Dashboard index endpoint."""
     global services
-    services = Services(pathlib.Path(cfg_services_yaml).read_text())
+    config_text = pathlib.Path(cfg_services_yaml).read_text()
+    config = yaml.safe_load(config_text)
+    services = Services(config_text)
     services.update_service_status()
     out = make_service_node_dict()
     nodes = Nodes(services.get_node_names())
@@ -427,6 +453,11 @@ def index():
     title = "sillycat dashboard"
     if nodes.warnings or services.warnings:
         title = "WARN sillycat dashboard"
+    mermaid_diagram = None
+    mermaid_postamble = None
+    if cfg_draw_mermaid_diagram:
+        mermaid_diagram = config.get("mermaid_diagram")
+        mermaid_postamble = process_mermaid_diagram(config, nodes, services)
     return flask.render_template(
         "services.jinja2",
         services=services,
@@ -435,6 +466,9 @@ def index():
         refresh_rate=refresh_rate,
         search_filter=search_filter,
         title=title,
+        mermaid_diagram=mermaid_diagram,
+        mermaid_postamble=mermaid_postamble,
+        cfg_draw_mermaid_diagram=cfg_draw_mermaid_diagram,
     )
 
 
@@ -449,6 +483,14 @@ def toggle_acknowledge_alert(service_name, node_name, node_alert_type):
         ACKNOWLEDGED_ALERTS.remove(elem)
     else:
         ACKNOWLEDGED_ALERTS.add(elem)
+    return flask.redirect(flask.url_for("index"))
+
+
+@app.route("/toggle_mermaid_diagram")
+def toggle_mermaid_diagram():
+    """Endpoint to toggle mermaid diagram drawing."""
+    global cfg_draw_mermaid_diagram
+    cfg_draw_mermaid_diagram = not cfg_draw_mermaid_diagram
     return flask.redirect(flask.url_for("index"))
 
 
@@ -590,13 +632,14 @@ def connect():
 # end of pyxtermjs functions
 
 
-def main(services_yaml, term_program="x-terminal-emulator"):
+def main(services_yaml, term_program="x-terminal-emulator", draw_mermaid_diagram=False):
     """Start sc web service."""
     global cfg_services_yaml
     cfg_services_yaml = services_yaml
     global cfg_term_program
     cfg_term_program = term_program
-
+    global cfg_draw_mermaid_diagram
+    cfg_draw_mermaid_diagram = draw_mermaid_diagram
     socketio.run(app, debug=True, port=1234, host="127.0.0.1")
 
 
