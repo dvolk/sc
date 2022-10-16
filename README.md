@@ -4,6 +4,7 @@
 - one-click deployments and updates
 - show service log and open terminal
 - memory, load and disk space and service monitoring
+- draw a diagram showing service connections and status
 - uses just systemd and ssh
 - everything in one configuration file
 - simple: no "control plane", no agent on worker nodes, no overlay network, no containers, no certificate management, no RBAC, etc
@@ -11,7 +12,7 @@
 
 ## screenshot
 
-<img src="https://i.imgur.com/PWEsjYR.png">
+<img src="https://i.imgur.com/DvdCaFZ.png">
 
 ## Installing and running sc (tested on Ubuntu 22.04)
 
@@ -25,12 +26,12 @@ source env/bin/activate
 pip3 install argh flask pyyaml flask-socketio simple-websocket
 ```
 
-Now create a service yaml file, see `test1.yaml`, `test2.yaml` and `test3.yaml` for examples. See below for notes about worker nodes and service configuration.
+Now create a service yaml file, see: `example.yaml`. See below for notes about worker nodes and service configuration.
 
 Run by giving the yaml file as an argument:
 
 ```bash
-python3 app.py test4.yaml
+python3 app.py example.yaml
 ```
 
 There's an optional argument `--term-program`, which can be given your preferred terminal emulator. Its default value is `x-terminal-emulator`, which should use your system terminal emulator. If you set `--term-program` to `xtermjs`, it will use the xtermjs web terminal instead of a local system terminal. This feature is a work in progress and comes with limitations compared to the system terminal. It is based on [xterm.js](https://xtermjs.org/) an [pyxtermjs](https://github.com/cs01/pyxtermjs).
@@ -56,28 +57,9 @@ Host *
 
 `sc` is configured with a yaml file which contains a list of services. A service is a dictionary.
 
-### Full example with anchors
+### Full example
 
-This is a full `sc` configuration example that uses yaml anchors for organisation. It deploys the `catboard` task board with `postgresql` in `docker` on 3 `LXD` nodes. The service is load balanced with `Caddy` used as a reverse proxy. The cloud balancer set up is up to you, or you can just run a single caddy instance.
-
-```mermaid
-graph LR;
-user((user))
-lb[Cloud load-balancer]
-caddy1[Caddy sc-node-5i3O4.lxd]
-caddy2[Caddy sc-node-FrOg2.lxd]
-caddy3[Caddy sc-node-dx5Z0.lxd]
-catboard1[Catboard sc-node-5i3O4.lxd]
-catboard2[Catboard sc-node-FrOg2.lxd]
-catboard3[Catboard sc-node-dx5Z0.lxd]
-postgres[(Postgres sc-node-5i3O4.lxd)]
-subgraph Internet
-user ---> lb
-end
-subgraph Internal network
-lb ---> caddy1 & caddy2 & caddy3 ---> catboard1 & catboard2 & catboard3 ---> postgres
-end
-```
+This is a full `sc` configuration example that uses yaml anchors for organisation. It deploys the `catboard` task board with `postgresql` in `docker` on 3 `LXD` nodes. The service is load balanced with `Caddy` used as a reverse proxy. The cloud balancer set up is up to you, or you can just run a single caddy instance. It also shows an optional service diagram that is drawn on the service page with `mermaid.js`.
 
 ```yaml
 all_nodes: &all_nodes
@@ -170,13 +152,31 @@ services:
     unit: *postgres_docker_unit
     deploy: *postgres_docker_deploy
     delete: *postgres_docker_delete
-```
 
-A service must have a name, and a list of nodes that it is to be deployed at or is present at. The name must be the same as the systemd unit.
+mermaid_diagram: |
+  graph LR;
+  user(user)
+  lb[Cloud load-balancer]
+  caddy1[caddy sc-node-5i3O4.lxd]
+  caddy2[caddy sc-node-FrOg2.lxd]
+  caddy3[caddy sc-node-dx5Z0.lxd]
+  catboard1[catboard sc-node-5i3O4.lxd]
+  catboard2[catboard sc-node-FrOg2.lxd]
+  catboard3[catboard sc-node-dx5Z0.lxd]
+  postgres[docker.postgres sc-node-5i3O4.lxd]
+  subgraph Internet
+  user ---> lb
+  end
+  subgraph Internal network
+  lb ---> caddy1 & caddy2 & caddy3 ---> catboard1 & catboard2 & catboard3 ---> postgres
+  end
+```
 
 ### Examples
 
 #### Simple service
+
+A service must have a name, and a list of nodes that it is to be deployed at or is present at. The name must be the same as the systemd unit.
 
 ```yaml
 services:
