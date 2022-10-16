@@ -74,7 +74,7 @@ catboard_unit: &catboard_unit |
   [Unit]
   Description=Catboard port 7777
   [Service]
-  Environment=CATBOARD_SQLALCHEMY_DATABASE_URI=postgresql://postgres:postgres@10.116.104.180:5432/postgres
+  Environment=CATBOARD_SQLALCHEMY_DATABASE_URI=postgresql://postgres:postgres@10.116.104.201:5432/postgres
   WorkingDirectory=/root/catboard
   ExecStart=/root/catboard/env/bin/python /root/catboard/app.py --host 0.0.0.0 --port 7777
 
@@ -87,7 +87,7 @@ catboard_deploy: &catboard_deploy |
   python3 -m venv env
   source /root/catboard/env/bin/activate
   pip3 install -r requirements.txt
-  CATBOARD_SQLALCHEMY_DATABASE_URI=postgresql://postgres:postgres@10.116.104.180:5432/postgres flask db upgrade
+  CATBOARD_SQLALCHEMY_DATABASE_URI=postgresql://postgres:postgres@10.116.104.201:5432/postgres flask db upgrade
 
 catboard_delete: &catboard_delete |
   rm -rf /root/catboard
@@ -100,7 +100,7 @@ caddy_deploy: &caddy_deploy |
     basicauth /* {
       user $2a$14$UH3seHGR7r6hqtTF7WQW4eLoNYxNhZajigbWKbkbp48JY5m91ruVi
     }
-    reverse_proxy 10.116.104.180:7777 10.116.104.33:7777 10.116.104.8:7777 {
+    reverse_proxy 10.116.104.201:7777 10.116.104.33:7777 10.116.104.8:7777 {
       fail_duration 30s
     }
   }
@@ -115,22 +115,18 @@ postgres_podman_unit: &postgres_podman_unit |
   [Unit]
   After=network.service
   [Service]
-  TimeoutStartSec=0
-  Restart=on-failure
-  ExecStartPre=-/usr/bin/podman stop %n
-  ExecStartPre=-/usr/bin/podman rm %n
-  ExecStartPre=/usr/bin/podman pull postgres
-  ExecStart=/usr/bin/podman run -p 5432:5432 -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres --rm --name %n postgres
-  [Install]
-  WantedBy=multi-user.target
+  Restart=always
+  ExecStart=/usr/bin/podman start -a podman.postgres
+  ExecStop=/usr/bin/podman stop -t 2 podman.postgres
 
 postgres_podman_deploy: &postgres_podman_deploy |
   apt update
   apt install -y podman
+  podman create --name podman.postgres -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -p 5432:5432 docker.io/library/postgres
 
 postgres_podman_delete: &postgres_podman_delete |
-  podman stop postgres
-  podman rm postgres
+  podman stop podman.postgres
+  podman rm podman.postgres
 
 services:
   - name: caddy
