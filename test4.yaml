@@ -88,3 +88,21 @@ services:
     unit: *postgres_docker_unit
     deploy: *postgres_docker_deploy
     delete: *postgres_docker_delete
+
+mermaid_diagram: |
+  graph LR;
+  user(user)
+  lb[Cloud load-balancer]
+  caddy1[caddy sc-node-5i3O4.lxd]
+  caddy2[caddy sc-node-FrOg2.lxd]
+  caddy3[caddy sc-node-dx5Z0.lxd]
+  catboard1[catboard sc-node-5i3O4.lxd]
+  catboard2[catboard sc-node-FrOg2.lxd]
+  catboard3[catboard sc-node-dx5Z0.lxd]
+  postgres[docker.postgres sc-node-5i3O4.lxd]
+  subgraph Internet
+  user ---> lb
+  end
+  subgraph Internal network
+  lb ---> caddy1 & caddy2 & caddy3 ---> catboard1 & catboard2 & catboard3 ---> postgres
+  end
