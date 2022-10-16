@@ -59,7 +59,7 @@ Host *
 
 ### Full example
 
-This is a full `sc` configuration example that uses yaml anchors for organisation. It deploys the `catboard` task board with `postgresql` in `docker` on 3 `LXD` nodes. The service is load balanced with `Caddy` used as a reverse proxy. The cloud balancer set up is up to you, or you can just run a single caddy instance. It also shows an optional service diagram that is drawn on the service page with `mermaid.js`.
+This is a full `sc` configuration example that uses yaml anchors for organisation. It deploys the `catboard` task board with `postgresql` in `podman` on 3 `LXD` nodes. The service is load balanced with `Caddy` used as a reverse proxy. The cloud balancer set up is up to you, or you can just run a single caddy instance. It also shows an optional service diagram that is drawn on the service page with `mermaid.js`.
 
 ```yaml
 all_nodes: &all_nodes
@@ -74,7 +74,7 @@ catboard_unit: &catboard_unit |
   [Unit]
   Description=Catboard port 7777
   [Service]
-  Environment=CATBOARD_SQLALCHEMY_DATABASE_URI=postgresql://postgres:postgres@10.116.104.22:5432/postgres
+  Environment=CATBOARD_SQLALCHEMY_DATABASE_URI=postgresql://postgres:postgres@10.116.104.180:5432/postgres
   WorkingDirectory=/root/catboard
   ExecStart=/root/catboard/env/bin/python /root/catboard/app.py --host 0.0.0.0 --port 7777
 
@@ -87,7 +87,7 @@ catboard_deploy: &catboard_deploy |
   python3 -m venv env
   source /root/catboard/env/bin/activate
   pip3 install -r requirements.txt
-  CATBOARD_SQLALCHEMY_DATABASE_URI=postgresql://postgres:postgres@10.116.104.22:5432/postgres flask db upgrade
+  CATBOARD_SQLALCHEMY_DATABASE_URI=postgresql://postgres:postgres@10.116.104.180:5432/postgres flask db upgrade
 
 catboard_delete: &catboard_delete |
   rm -rf /root/catboard
@@ -100,7 +100,7 @@ caddy_deploy: &caddy_deploy |
     basicauth /* {
       user $2a$14$UH3seHGR7r6hqtTF7WQW4eLoNYxNhZajigbWKbkbp48JY5m91ruVi
     }
-    reverse_proxy 10.116.104.22:7777 10.116.104.33:7777 10.116.104.8:7777 {
+    reverse_proxy 10.116.104.180:7777 10.116.104.33:7777 10.116.104.8:7777 {
       fail_duration 30s
     }
   }
@@ -111,27 +111,26 @@ caddy_delete: &caddy_delete |
   systemctl stop caddy
   apt purge -y caddy
 
-postgres_docker_unit: &postgres_docker_unit |
+postgres_podman_unit: &postgres_podman_unit |
   [Unit]
-  After=docker.service
-  Requires=docker.service
+  After=network.service
   [Service]
   TimeoutStartSec=0
-  Restart=always
-  ExecStartPre=-/usr/bin/docker stop %n
-  ExecStartPre=-/usr/bin/docker rm %n
-  ExecStartPre=/usr/bin/docker pull postgres
-  ExecStart=/usr/bin/docker run -p 5432:5432 -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres --rm --name %n postgres
+  Restart=on-failure
+  ExecStartPre=-/usr/bin/podman stop %n
+  ExecStartPre=-/usr/bin/podman rm %n
+  ExecStartPre=/usr/bin/podman pull postgres
+  ExecStart=/usr/bin/podman run -p 5432:5432 -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres --rm --name %n postgres
   [Install]
   WantedBy=multi-user.target
 
-postgres_docker_deploy: &postgres_docker_deploy |
+postgres_podman_deploy: &postgres_podman_deploy |
   apt update
-  apt install -y docker.io
+  apt install -y podman
 
-postgres_docker_delete: &postgres_docker_delete |
-  docker stop postgres
-  docker rm postgres
+postgres_podman_delete: &postgres_podman_delete |
+  podman stop postgres
+  podman rm postgres
 
 services:
   - name: caddy
@@ -147,11 +146,11 @@ services:
     deploy: *catboard_deploy
     delete: *catboard_delete
 
-  - name: docker.postgres
+  - name: podman.postgres
     nodes: *postgres_node
-    unit: *postgres_docker_unit
-    deploy: *postgres_docker_deploy
-    delete: *postgres_docker_delete
+    unit: *postgres_podman_unit
+    deploy: *postgres_podman_deploy
+    delete: *postgres_podman_delete
 
 mermaid_diagram: |
   graph LR;
@@ -163,7 +162,7 @@ mermaid_diagram: |
   catboard1[catboard sc-node-5i3O4.lxd]
   catboard2[catboard sc-node-FrOg2.lxd]
   catboard3[catboard sc-node-dx5Z0.lxd]
-  postgres[docker.postgres sc-node-5i3O4.lxd]
+  postgres[podman.postgres sc-node-5i3O4.lxd]
   subgraph Internet
   user ---> lb
   end
@@ -239,7 +238,7 @@ services:
 
 #### Using docker containers
 
-You can use a systemd service to wrap a docker container, for example:
+You can use a systemd service to wrap a `docker` container, for example:
 
 ```yaml
 services:
