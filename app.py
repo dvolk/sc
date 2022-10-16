@@ -91,7 +91,7 @@ class Node:
         self.cpu_warn = False
         if float(self.load) > CPU_LOAD_WARN_PCT * int(self.cpus):
             self.cpu_warn = True
-            if not is_node_alert_acked(self.node_name, "cpu_load"):
+            if not is_node_alert_acked(self.node_name, "cpu"):
                 self.warnings += 1
         for df_data in df_out_words:
             device = df_data[0]
