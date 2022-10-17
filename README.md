@@ -10,7 +10,7 @@
 - simple: no "control plane", no agent on worker nodes, no overlay network, no containers, no certificate management, no RBAC, etc
 - wrap containers in systemd service (if you must)
 
-<img src="https://i.imgur.com/DvdCaFZ.png" width="80%">
+<img src="https://i.imgur.com/DvdCaFZ.png">
 
 ## Installing and running sc (tested on Ubuntu 22.04)
 
