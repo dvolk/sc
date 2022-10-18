@@ -451,7 +451,7 @@ def process_mermaid_diagram(config, nodes, services):
         m = re.match(r"(.*)\[(.*) (.*)\]", diagram_line)
         if m:
             item_mermaid_id = m.group(1)
-            item_service_name = m.group(2)
+            item_service_name = m.group(2).replace("<br/>", "")
             item_node_name = m.group(3)
             if item_service_name in service_names and item_node_name in node_names:
                 item_service_status = services.by_name[item_service_name].status[
