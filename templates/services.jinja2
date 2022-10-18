@@ -83,7 +83,7 @@
       <div class="ib">
         <p>
           <br/>
-          <a href="/config" style="margin-left: 5px;" class="w3-btn w3-blue">{{ icon('edit') }} Config</a>
+          <a href="/config" style="margin-left: 0px;" class="w3-btn w3-blue">{{ icon('edit') }} Config</a>
         </p>
       </div>
 
@@ -91,7 +91,7 @@
         <p>
           <br/>
           <span>
-            <a href="/toggle_mermaid_diagram" class="w3-btn w3-blue">{{ icon('th') }} Diagram</a>
+            <a href="/toggle_mermaid_diagram" class="w3-btn w3-blue">{{ icon('ellipsis-h') }} Diagram</a>
           </span>
         </p>
       </div>
@@ -108,7 +108,7 @@
       <div class="ib">
         <p>
           <br/>
-          <span style="margin-left: 10px;">Updated
+          <span style="margin-left: 10px; color: #666;">{{ icon('clock-o') }} Updated
             <span id="lastUpdated" >0</span>s ago.
           </span>
         </p>
@@ -161,7 +161,7 @@
           {% for node_name, service in services_on_nodes.items() %}
             <tr>
               <td>
-                {{ icon('cube') }} {{ node_name }}
+                {{ icon('cube') }} {{ node_name }}<br/>{{ icon('none') }} <small style="color: #666">{{ service.last_changed[node_name] }}</small>
               </td>
               <td style="text-align: right">
                 <a href="{{ url_for('toggle_acknowledge_alert', service_name=service_name, node_name=node_name, node_alert_type='-') }}">

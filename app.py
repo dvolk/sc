@@ -4,11 +4,12 @@ import subprocess
 import collections
 import pathlib
 import datetime
+import re
 
 import yaml
 import flask
 import argh
-import re
+import tabulate
 
 # pyxtermjs imports
 
@@ -163,7 +164,7 @@ class Nodes:
 
 
 class Service:
-    """Class encapsulating a service (accross all worker nodes)."""
+    """Class encapsulating a service (across all worker nodes)."""
 
     def __init__(self, service_dict):
         """Initialize class variables."""
@@ -174,6 +175,7 @@ class Service:
         self.systemd_unit = service_dict.get("unit", None)
         self.ports = service_dict.get("ports", None)
         self.status = dict()
+        self.last_changed = dict()
 
     def update_status_on_node(self, node_name):
         """Update the service status on a node by running systemctl status."""
@@ -186,6 +188,13 @@ class Service:
             self.name,
         ]
         p = subprocess.run(cmd, stdout=subprocess.PIPE)
+        try:
+            ws = p.stdout.decode().split("\n")
+            semi_col_idx = ws[2].index(";")
+            self.last_changed[node_name] = ws[2][semi_col_idx + 2 :]
+        except Exception:
+            print(f"couldn't parse last_changed: {ws}")
+
         if p.returncode == 0:
             self.status[node_name] = "active"
         elif p.returncode == 3:
@@ -275,13 +284,29 @@ class Services:
     def update_service_status(self):
         """Update services status on all nodes."""
         self.warnings = 0
+        out = []
         for service in self.all:
+            print(f"updating {service.name}")
             service.update_status_on_all_nodes()
             for node_name, status in service.status.items():
-                print(node_name, status)
+                out.append(
+                    [
+                        service.name,
+                        node_name,
+                        status,
+                        service.last_changed.get(node_name),
+                    ]
+                )
                 if status != "active":
                     if not is_service_alert_acked(service.name, node_name):
                         self.warnings += 1
+        print()
+        print(
+            tabulate.tabulate(
+                out, headers=["service", "node", "status", "last_updated"]
+            )
+        )
+        print()
 
     def get_node_names(self):
         """Return all node names."""
