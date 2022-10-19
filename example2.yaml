@@ -1,0 +1,124 @@
+all_nodes: &all_nodes
+  - 172.16.100.101
+  - 172.16.100.99
+  - 172.16.100.177
+
+postgres_node: &postgres_node
+  - 172.16.100.177
+
+catboard_unit: &catboard_unit |
+  [Unit]
+  Description=Catboard port 7777
+  [Service]
+  Environment=CATBOARD_SQLALCHEMY_DATABASE_URI=postgresql://postgres:postgres@172.16.100.177:5432/postgres
+  WorkingDirectory=/root/catboard
+  ExecStart=/root/catboard/env/bin/python /root/catboard/app.py --host 0.0.0.0 --port 7777
+
+catboard_deploy: &catboard_deploy |
+  apt update
+  apt install -y python3-pip python3-venv git
+  rm -rf /root/catboard
+  git clone https://github.com/dvolk/catboard /root/catboard
+  cd /root/catboard
+  python3 -m venv env
+  source /root/catboard/env/bin/activate
+  pip3 install -r requirements.txt
+  CATBOARD_SQLALCHEMY_DATABASE_URI=postgresql://postgres:postgres@172.16.100.177:5432/postgres flask db upgrade
+
+catboard_delete: &catboard_delete |
+  rm -rf /root/catboard
+
+caddy_deploy: &caddy_deploy |
+  wget -nc https://github.com/caddyserver/caddy/releases/download/v2.6.2/caddy_2.6.2_linux_amd64.deb
+  dpkg -i caddy_2.6.2_linux_amd64.deb
+  cat > /etc/caddy/Caddyfile <<"EOF"
+  :80 {
+    basicauth /* {
+      user $2a$14$UH3seHGR7r6hqtTF7WQW4eLoNYxNhZajigbWKbkbp48JY5m91ruVi
+    }
+    reverse_proxy 172.16.100.101:7777 172.16.100.99:7777 172.16.100.177:7777 {
+      fail_duration 30s
+    }
+  }
+  EOF
+  systemctl restart caddy
+
+caddy_delete: &caddy_delete |
+  systemctl stop caddy
+  apt purge -y caddy
+
+postgres_podman_unit: &postgres_podman_unit |
+  [Unit]
+  After=network.service
+  [Service]
+  Restart=always
+  ExecStart=/usr/bin/podman start -a podman.postgres
+  ExecStop=/usr/bin/podman stop -t 2 podman.postgres
+
+postgres_podman_deploy: &postgres_podman_deploy |
+  apt update
+  apt install -y podman
+  podman create --name podman.postgres -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -p 5432:5432 docker.io/library/postgres
+
+postgres_podman_delete: &postgres_podman_delete |
+  podman stop podman.postgres
+  podman rm podman.postgres
+
+services:
+  - name: sshd
+    nodes:
+      - localhost
+
+  - name: caddy
+    nodes: *all_nodes
+    ports:
+      - 80
+    deploy: *caddy_deploy
+    delete: *caddy_delete
+    sites:
+      - name: Docs
+        url: https://caddyserver.com/docs/
+
+  - name: catboard
+    unit: *catboard_unit
+    nodes: *all_nodes
+    deploy: *catboard_deploy
+    delete: *catboard_delete
+    sites:
+      - name: Docs
+        url: https://github.com/dvolk/catboard
+
+  - name: podman.postgres
+    nodes: *postgres_node
+    unit: *postgres_podman_unit
+    deploy: *postgres_podman_deploy
+    delete: *postgres_podman_delete
+    sites:
+      - name: Docs
+        url: https://www.postgresql.org/docs/
+      - name: Podman
+        url: https://docs.podman.io/en/latest/
+
+mermaid_diagram: |
+  graph LR;
+  user(user)
+  lb[Cloud load-balancer]
+  caddy1[caddy 172.16.100.101]
+  caddy2[caddy 172.16.100.99]
+  caddy3[caddy 172.16.100.177]
+  catboard1[catboard 172.16.100.101]
+  catboard2[catboard 172.16.100.99]
+  catboard3[catboard 172.16.100.177]
+  postgres[podman.postgres 172.16.100.177]
+  subgraph Internet
+  user ---> lb
+  end
+  subgraph Internal network
+  lb ---> caddy1 & caddy2 & caddy3 ---> catboard1 & catboard2 & catboard3 ---> postgres
+  end
+
+sites:
+  - name: STFC cloud
+    url: https://openstack.stfc.ac.uk/
+  - name: Catboard container
+    url: https://git.oxfordfun.com/dv/-/packages/container/catboard/latest
