@@ -83,7 +83,7 @@
       <div class="ib">
         <p>
           <br/>
-          <a href="/config" style="margin-left: 0px;" class="w3-btn w3-blue">{{ icon('edit') }} Config</a>
+          <a target="_blank" href="/config" style="margin-left: 0px;" class="w3-btn w3-blue">{{ icon('edit') }} Config</a>
         </p>
       </div>
 
@@ -137,12 +137,14 @@
     </script>
 
     <div class="w3-container w3-panel w3-white">
+      <center>
       <p>
         <div class="mermaid">
           {{- mermaid_diagram -}}
           {{- mermaid_postamble -}}
         </div>
       </p>
+      </center>
     </div>
   {% endif %}
 
@@ -152,16 +154,23 @@
 
   {% if cfg_draw_tables %}
 
-  <div class="w3-container w3-half w3-white {% if not mermaid_diagram %} w3-panel {% endif %}" style="padding: 10px 20px;">
+    <div class="w3-half">
+  <div class="w3-container w3-white {% if not mermaid_diagram %} w3-panel {% endif %}" style="padding: 10px 20px;">
     <h2>{{ icon('cogs') }} Services {% if services.warnings %}<span style="padding: 0 10px; float:right" class="w3-red">Warnings: {{ services.warnings }}</span>{% endif %}</h2>
     {% for service_name, services_on_nodes in out.items() if not search_filter or search_filter in service_name %}
-      <h3>{{ icon('circle-thin') }} {{ service_name }}</h3>
+      <h3>{{ icon('circle-thin') }} {{ service_name }}
+        {% set sites = (services_on_nodes.values()|list)[0].sites %}
+        {% for site in sites %}
+          <small><a target="_blank" title="{{ site['url'] }}" style="font-size: 0.8em; color: #666;" href="{{ site['url'] }}">{{ icon('external-link') }} {{ site['name'] }}</a></small>
+        {% endfor %}
+      </h3>
       <table class="w3-table">
         <tbody>
           {% for node_name, service in services_on_nodes.items() %}
             <tr>
               <td>
-                {{ icon('cube') }} {{ node_name }}<br/>{{ icon('none') }} <small style="color: #666">{{ service.last_changed[node_name] }}</small>
+                {{ icon('cube') }} {{ node_name }}
+                <br/>{{ icon('none') }} <small style="color: #666">{{ service.last_changed[node_name] }}</small>
               </td>
               <td style="text-align: right">
                 <a href="{{ url_for('toggle_acknowledge_alert', service_name=service_name, node_name=node_name, node_alert_type='-') }}">
@@ -204,12 +213,14 @@
       </table>
     {% endfor %}
   </div>
+  </div>
 
   {#
   // nodes
   #}
 
-  <div class="w3-container w3-half w3-white {% if not mermaid_diagram %} w3-panel {% endif %}" style="padding-right: 30px; padding: 10px 20px;">
+    <div class="w3-half">
+  <div class="w3-container w3-white {% if not mermaid_diagram %} w3-panel {% endif %}" style="padding-right: 30px; padding: 10px 20px;">
     <h2>{{ icon('cubes') }} Nodes {% if nodes.warnings %}<span style="padding: 0 10px; float:right" class="w3-red">Warnings: {{ nodes.warnings }}</span>{% endif %}</h2>
 
     <p>
@@ -243,7 +254,15 @@
         {% if not node.is_up %}
           <span class='blink'>{{ icon('exclamation-triangle') }} DOWN! {{ icon('exclamation-triangle') }}</span>
         {% endif %}
-          {{ icon('cube') }} {{ node.node_name }}&nbsp;&nbsp;<small title="time in miliseconds that it took the node update to run" style="font-size: 0.7em; color: grey">{{ node.update_time_ms|round|int }}ms</small>
+        {{ icon('cube') }} {{ node.node_name }}&nbsp;&nbsp;
+        <small style="font-size: 0.6em; margin-top: 8px; float: right; color: #666;">
+          <span title="node uptime">
+            {{ icon('caret-up') }} {{ node.uptime }}
+          </span>
+          <span title="time in miliseconds that it took the node update to run">
+            {{ icon('clock-o') }} {{ node.update_time_ms|round|int }}ms
+          </span>
+        </small>
       </h3>
       <span title="node memory usage">
         &nbsp;{{ icon('microchip') }}
@@ -276,6 +295,18 @@
       {% endfor %}
       </div>
     {% endfor %}
+  </div>
+
+  <div class="w3-container w3-white w3-panel">
+    <h3>{{ icon('book') }} Docs</h3>
+    <p>
+      <ul class="w3-ul">
+        {% for site in sites %}
+          <li><a target="_blank" href="{{ site['url'] }}">{{ icon('external-link') }} {{ site['name'] }}</a></li>
+        {% endfor %}
+      </ul>
+    </p>
+
   </div>
 
   {% endif %} {# if cfg_draw_tables #}

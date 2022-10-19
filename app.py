@@ -66,6 +66,7 @@ class Node:
         self.df = []
         self.is_up = True
         self.warnings = 0
+        self.uptime = ""
         self.update_time_ms = 0
 
     def update_metrics(self):
@@ -82,7 +83,10 @@ class Node:
         self.mem_used = int(int(mem_cmd_out_words[1][2]) // 1e3)
         self.mem_avail = int(int(mem_cmd_out_words[1][1]) // 1e3)
         load_cmd = ["ssh", "root@" + self.node_name, "uptime"]
-        load_cmd_out_words = lines_words(subprocess.check_output(load_cmd))
+        load_cmd_out = subprocess.check_output(load_cmd)
+        uptime_end_idx = load_cmd_out.decode().index(",")
+        self.uptime = load_cmd_out.decode()[13:uptime_end_idx]
+        load_cmd_out_words = lines_words(load_cmd_out)
         self.load = float(load_cmd_out_words[0][-3][:-1])
         cpus_cmd = ["ssh", "root@" + self.node_name, "cat /proc/cpuinfo"]
         cpus_cmd_out_words = subprocess.check_output(cpus_cmd).decode().split()
@@ -174,6 +178,7 @@ class Service:
         self.delete_script = service_dict.get("delete", None)
         self.systemd_unit = service_dict.get("unit", None)
         self.ports = service_dict.get("ports", None)
+        self.sites = service_dict.get("sites", [])
         self.status = dict()
         self.last_changed = dict()
 
@@ -464,6 +469,38 @@ def process_mermaid_diagram(config, nodes, services):
     return "\n".join(out)
 
 
+INCLUDED_SITES = [
+    {
+        "name": "Sillycat",
+        "url": "https://github.com/dvolk/sc",
+    },
+    {
+        "name": "Systemd docs",
+        "url": "https://www.freedesktop.org/wiki/Software/systemd/",
+    },
+    {
+        "name": "Systemd on Archwiki",
+        "url": "https://wiki.archlinux.org/title/systemd",
+    },
+    {
+        "name": "Systemd by example",
+        "url": "https://systemd-by-example.com/",
+    },
+    {
+        "name": "Podman",
+        "url": "https://docs.podman.io/en/latest/",
+    },
+    {
+        "name": "Running podman containers in systemd",
+        "url": "https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux_atomic_host/7/html/managing_containers/running_containers_as_systemd_services_with_podman",
+    },
+    {
+        "name": "Mermaid.js flowcharts",
+        "url": "https://mermaid-js.github.io/mermaid/#/flowchart",
+    },
+]
+
+
 @app.route("/")
 def index():
     """Dashboard index endpoint."""
@@ -474,6 +511,7 @@ def index():
     services.update_service_status()
     out = make_service_node_dict()
     nodes = Nodes(services.get_node_names())
+    sites = INCLUDED_SITES + config.get("sites", [])
     nodes.update()
     title = "sillycat dashboard"
     if nodes.warnings or services.warnings:
@@ -491,6 +529,7 @@ def index():
         refresh_rate=refresh_rate,
         search_filter=search_filter,
         title=title,
+        sites=sites,
         mermaid_diagram=mermaid_diagram,
         mermaid_postamble=mermaid_postamble,
         cfg_draw_mermaid_diagram=cfg_draw_mermaid_diagram,
