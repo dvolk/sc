@@ -236,6 +236,7 @@ class Service:
             script += f"scp /tmp/{self.name}.service root@{node_name}:/lib/systemd/system/{self.name}.service\n"
             script += f"ssh root@{node_name} systemctl daemon-reload\n"
         with open(f"/tmp/{self.name}.deploy.sh", "w") as f:
+            f.write("set -x\n\n")
             f.write(self.deploy_script)
         script += f"scp /tmp/{self.name}.deploy.sh root@{node_name}:/tmp/sc.{self.name}.deploy.sh\n"
         script += f"ssh root@{node_name} bash /tmp/sc.{self.name}.deploy.sh\n"
@@ -253,6 +254,7 @@ class Service:
             )
             script += f"ssh root@{node_name} systemctl daemon-reload\n"
         with open(f"/tmp/{self.name}.delete.sh", "w") as f:
+            f.write("set -x\n\n")
             f.write(self.delete_script)
         script += f"scp /tmp/{self.name}.delete.sh root@{node_name}:/tmp/sc.{self.name}.delete.sh\n"
         script += f"ssh root@{node_name} bash /tmp/sc.{self.name}.delete.sh\n"
