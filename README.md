@@ -1,18 +1,19 @@
 # sc: simple distributed service manager
 
-- manage services on multiple hosts with a web UI
-- one-click deployments and updates
-- show service log and open terminal
-- memory, load and disk space and service monitoring
-- draw a diagram showing service connections and status
-- uses just systemd and ssh
-- everything in one configuration file
-- simple: no "control plane", no agent on worker nodes, no overlay network, no containers, no certificate management, no RBAC, etc
-- wrap containers in systemd service (if you must)
+- Manage services on multiple hosts with a web UI
+- One-click deployments and updates
+- Show service log and open terminal
+- Memory, load and disk space and service monitoring
+- Draw a diagram showing service connections and status
+- Uses just systemd and ssh
+- Everything in one configuration file
+- Simple: no "control plane", no agent on worker nodes, no overlay network, no containers, no certificate management, no RBAC, etc
+- Wrap containers in systemd service (if you must)
+- Add links to services and deployment
 
 ## Screenshot
 
-<img src="https://i.imgur.com/DvdCaFZ.png">
+<img src="https://i.imgur.com/yoKgAWz.png">
 
 ## Installing and running sc (tested on Ubuntu 22.04)
 
@@ -23,7 +24,7 @@ git clone https://github.com/dvolk/sc
 cd sc
 python3 -m venv env
 source env/bin/activate
-pip3 install argh flask pyyaml flask-socketio simple-websocket
+pip3 install argh flask pyyaml flask-socketio simple-websocket tabulate
 ```
 
 Now create a service yaml file, see: `example.yaml`. See below for notes about worker nodes and service configuration.
@@ -129,24 +130,39 @@ postgres_podman_delete: &postgres_podman_delete |
   podman rm podman.postgres
 
 services:
+  - name: sshd
+    nodes:
+      - localhost
+
   - name: caddy
     nodes: *all_nodes
     ports:
       - 80
     deploy: *caddy_deploy
     delete: *caddy_delete
+    sites:
+      - name: Docs
+        url: https://caddyserver.com/docs/
 
   - name: catboard
     unit: *catboard_unit
     nodes: *all_nodes
     deploy: *catboard_deploy
     delete: *catboard_delete
+    sites:
+      - name: Docs
+        url: https://github.com/dvolk/catboard
 
   - name: podman.postgres
     nodes: *postgres_node
     unit: *postgres_podman_unit
     deploy: *postgres_podman_deploy
     delete: *postgres_podman_delete
+    sites:
+      - name: Docs
+        url: https://www.postgresql.org/docs/
+      - name: Podman
+        url: https://docs.podman.io/en/latest/
 
 mermaid_diagram: |
   graph LR;
@@ -165,6 +181,12 @@ mermaid_diagram: |
   subgraph Internal network
   lb ---> caddy1 & caddy2 & caddy3 ---> catboard1 & catboard2 & catboard3 ---> postgres
   end
+
+sites:
+  - name: STFC cloud
+    url: https://openstack.stfc.ac.uk/
+  - name: Catboard container
+    url: https://git.oxfordfun.com/dv/-/packages/container/catboard/latest
 ```
 
 ### Examples

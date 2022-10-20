@@ -65,24 +65,39 @@ postgres_podman_delete: &postgres_podman_delete |
   podman rm podman.postgres
 
 services:
+  - name: sshd
+    nodes:
+      - localhost
+
   - name: caddy
     nodes: *all_nodes
     ports:
       - 80
     deploy: *caddy_deploy
     delete: *caddy_delete
+    sites:
+      - name: Docs
+        url: https://caddyserver.com/docs/
 
   - name: catboard
     unit: *catboard_unit
     nodes: *all_nodes
     deploy: *catboard_deploy
     delete: *catboard_delete
+    sites:
+      - name: Docs
+        url: https://github.com/dvolk/catboard
 
   - name: podman.postgres
     nodes: *postgres_node
     unit: *postgres_podman_unit
     deploy: *postgres_podman_deploy
     delete: *postgres_podman_delete
+    sites:
+      - name: Docs
+        url: https://www.postgresql.org/docs/
+      - name: Podman
+        url: https://docs.podman.io/en/latest/
 
 mermaid_diagram: |
   graph LR;
@@ -101,3 +116,9 @@ mermaid_diagram: |
   subgraph Internal network
   lb ---> caddy1 & caddy2 & caddy3 ---> catboard1 & catboard2 & catboard3 ---> postgres
   end
+
+sites:
+  - name: STFC cloud
+    url: https://openstack.stfc.ac.uk/
+  - name: Catboard container
+    url: https://git.oxfordfun.com/dv/-/packages/container/catboard/latest
