@@ -71,11 +71,11 @@ services:
 
   - name: caddy
     nodes: *all_nodes
-    ports:
-      - 80
+    svc_uris:
+      - http://%NODE_NAME%
     deploy: *caddy_deploy
     delete: *caddy_delete
-    sites:
+    doc_sites:
       - name: Docs
         url: https://caddyserver.com/docs/
 
@@ -84,7 +84,7 @@ services:
     nodes: *all_nodes
     deploy: *catboard_deploy
     delete: *catboard_delete
-    sites:
+    doc_sites:
       - name: Docs
         url: https://github.com/dvolk/catboard
 
@@ -93,7 +93,7 @@ services:
     unit: *postgres_podman_unit
     deploy: *postgres_podman_deploy
     delete: *postgres_podman_delete
-    sites:
+    doc_sites:
       - name: Docs
         url: https://www.postgresql.org/docs/
       - name: Podman
@@ -117,7 +117,7 @@ mermaid_diagram: |
   lb ---> caddy1 & caddy2 & caddy3 ---> catboard1 & catboard2 & catboard3 ---> postgres
   end
 
-sites:
+doc_sites:
   - name: STFC cloud
     url: https://openstack.stfc.ac.uk/
   - name: Catboard container

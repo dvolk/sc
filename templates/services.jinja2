@@ -159,7 +159,7 @@
     <h2>{{ icon('cogs') }} Services {% if services.warnings %}<span style="padding: 0 10px; float:right" class="w3-red">Warnings: {{ services.warnings }}</span>{% endif %}</h2>
     {% for service_name, services_on_nodes in out.items() if not search_filter or search_filter in service_name %}
       <h3>{{ icon('circle-thin') }} {{ service_name }}
-        {% set sites = (services_on_nodes.values()|list)[0].sites %}
+        {% set sites = (services_on_nodes.values()|list)[0].doc_sites %}
         {% for site in sites %}
           <small><a target="_blank" title="{{ site['url'] }}" style="font-size: 0.8em; color: #666;" href="{{ site['url'] }}">{{ icon('external-link') }} {{ site['name'] }}</a></small>
         {% endfor %}
@@ -195,15 +195,12 @@
                 </span>
               </td>
             </tr>
-            {% if service.ports and service.status[node_name] == "active" %}
-              {% for port in service.ports %}
-                {% set proto = "http" %}
-                {% set port_str = ":" + port|string %}
-                {% if port in [80, 8080, 8000] %} {% set proto = "http" %} {% set port_str = "" %} {% endif %}
-                {% if port in [443, 8443] %} {% set proto = "https" %} {% set port_str = "" %} {% endif %}
+            {% if service.svc_uris and service.status[node_name] == "active" %}
+              {% for svc_uri in service.svc_uris %}
+                {% set svc_uri_cons = svc_uri|replace("%NODE_NAME%", node_name) %}
                 <tr>
                   <td colspan=2>
-                    &nbsp;&nbsp;<a class="w3-btn w3-small w3-green" target="_blank" href="{{ proto }}://{{ node_name }}:{{ port }}">{{ icon('external-link') }} {{ proto }}://{{ node_name }}{{ port_str }}</a>
+                    &nbsp;&nbsp;<a class="w3-btn w3-small w3-green" target="_blank" href="{{ svc_uri_cons }}">{{ icon('external-link') }} {{ svc_uri_cons }}</a>
                   </td>
                 </tr>
               {% endfor %}
@@ -301,7 +298,7 @@
     <h3>{{ icon('book') }} Docs</h3>
     <p>
       <ul class="w3-ul">
-        {% for site in sites %}
+        {% for site in doc_sites %}
           <li><a target="_blank" href="{{ site['url'] }}">{{ icon('external-link') }} {{ site['name'] }}</a></li>
         {% endfor %}
       </ul>

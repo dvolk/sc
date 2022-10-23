@@ -114,6 +114,7 @@ class Node:
                 device.startswith("/dev/sd")
                 or device.startswith("/dev/mapper")
                 or device.startswith("/dev/vd")
+                or device.startswith("/dev/root")
             ):
                 continue
             if mounted_on == "/boot/efi":
@@ -177,8 +178,8 @@ class Service:
         self.deploy_script = service_dict.get("deploy", None)
         self.delete_script = service_dict.get("delete", None)
         self.systemd_unit = service_dict.get("unit", None)
-        self.ports = service_dict.get("ports", None)
-        self.sites = service_dict.get("sites", [])
+        self.svc_uris = service_dict.get("svc_uris", [])
+        self.doc_sites = service_dict.get("doc_sites", [])
         self.status = dict()
         self.last_changed = dict()
 
@@ -469,30 +470,18 @@ def process_mermaid_diagram(config, nodes, services):
     return "\n".join(out)
 
 
-INCLUDED_SITES = [
+INCLUDED_DOC_SITES = [
     {
         "name": "Sillycat",
         "url": "https://github.com/dvolk/sc",
-    },
-    {
-        "name": "Systemd docs",
-        "url": "https://www.freedesktop.org/wiki/Software/systemd/",
     },
     {
         "name": "Systemd on Archwiki",
         "url": "https://wiki.archlinux.org/title/systemd",
     },
     {
-        "name": "Systemd by example",
-        "url": "https://systemd-by-example.com/",
-    },
-    {
         "name": "Podman",
         "url": "https://docs.podman.io/en/latest/",
-    },
-    {
-        "name": "Running podman containers in systemd",
-        "url": "https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux_atomic_host/7/html/managing_containers/running_containers_as_systemd_services_with_podman",
     },
     {
         "name": "Mermaid.js flowcharts",
@@ -511,7 +500,7 @@ def index():
     services.update_service_status()
     out = make_service_node_dict()
     nodes = Nodes(services.get_node_names())
-    sites = INCLUDED_SITES + config.get("sites", [])
+    doc_sites = INCLUDED_DOC_SITES + config.get("doc_sites", [])
     nodes.update()
     title = "sillycat dashboard"
     if nodes.warnings or services.warnings:
@@ -529,7 +518,7 @@ def index():
         refresh_rate=refresh_rate,
         search_filter=search_filter,
         title=title,
-        sites=sites,
+        doc_sites=doc_sites,
         mermaid_diagram=mermaid_diagram,
         mermaid_postamble=mermaid_postamble,
         cfg_draw_mermaid_diagram=cfg_draw_mermaid_diagram,
