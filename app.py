@@ -448,26 +448,40 @@ def apply_settings():
 
 
 def process_mermaid_diagram(config, nodes, services):
-    """Set colors for the nodes in the mermaid diagram."""
+    """Set colors for the nodes in the mermaid diagram.
+
+    And add @ before node names.
+    """
     service_names = [service["name"] for service in config.get("services")]
     node_names = services.get_node_names()
     diagram_lines = config.get("mermaid_diagram").split("\n")
-    out = ["classDef good fill:#9f9;", "classDef bad fill:#f99;"]
+    out1 = []
+    out2 = ["classDef good fill:#9f9;", "classDef bad fill:#f99;"]
     for diagram_line in diagram_lines:
         m = re.match(r"(.*)\[(.*) (.*)\]", diagram_line)
-        if m:
+        if not m:
+            out1.append(diagram_line)
+        else:
             item_mermaid_id = m.group(1)
             item_service_name = m.group(2).replace("<br/>", "")
+            item_service_name_orig = m.group(2)
             item_node_name = m.group(3)
+
             if item_service_name in service_names and item_node_name in node_names:
+                out1.append(
+                    f"{item_mermaid_id}[{item_service_name_orig} fa:fa-at {item_node_name}]"
+                )
                 item_service_status = services.by_name[item_service_name].status[
                     item_node_name
                 ]
                 if item_service_status == "active":
-                    out.append(f"class {item_mermaid_id} good;")
+                    out2.append(f"class {item_mermaid_id} good;")
                 else:
-                    out.append(f"class {item_mermaid_id} bad;")
-    return "\n".join(out)
+                    out2.append(f"class {item_mermaid_id} bad;")
+            else:
+                out1.append(diagram_line)
+
+    return "\n".join(out1 + out2)
 
 
 INCLUDED_DOC_SITES = [
@@ -506,10 +520,9 @@ def index():
     if nodes.warnings or services.warnings:
         title = "WARN sillycat dashboard"
     mermaid_diagram = None
-    mermaid_postamble = None
     if cfg_draw_mermaid_diagram:
         mermaid_diagram = config.get("mermaid_diagram")
-        mermaid_postamble = process_mermaid_diagram(config, nodes, services)
+        mermaid_diagram = process_mermaid_diagram(config, nodes, services)
     return flask.render_template(
         "services.jinja2",
         services=services,
@@ -520,7 +533,6 @@ def index():
         title=title,
         doc_sites=doc_sites,
         mermaid_diagram=mermaid_diagram,
-        mermaid_postamble=mermaid_postamble,
         cfg_draw_mermaid_diagram=cfg_draw_mermaid_diagram,
         cfg_draw_tables=cfg_draw_tables,
     )
