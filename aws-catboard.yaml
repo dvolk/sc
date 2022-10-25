@@ -1,0 +1,88 @@
+all_nodes: &all_nodes
+  - ec2-18-134-229-193.eu-west-2.compute.amazonaws.com
+  - ec2-18-134-249-194.eu-west-2.compute.amazonaws.com
+
+caddy_nodes: &caddy_nodes
+  - ec2-18-134-229-193.eu-west-2.compute.amazonaws.com
+
+catboard_unit: &catboard_unit |
+  [Unit]
+  Description=Catboard port 7777
+  [Service]
+  User=ubuntu
+  Group=ubuntu
+  WorkingDirectory=/home/ubuntu/catboard
+  ExecStart=/home/ubuntu/catboard/env/bin/python /home/ubuntu/catboard/app.py --host 0.0.0.0 --port 7777
+  Environment=CATBOARD_SQLALCHEMY_DATABASE_URI=postgresql://postgres:WeQg5pJwboNKV5KCs6cl@catbird.c7gbhhbej6ev.eu-west-2.rds.amazonaws.com:5432/postgres
+
+catboard_deploy: &catboard_deploy |
+  apt update
+  apt install -y python3-pip python3-venv git
+  su ubuntu <<"ENDOFSU"
+    git clone https://github.com/dvolk/catboard /home/ubuntu/catboard
+    cd /home/ubuntu/catboard
+    python3 -m venv env
+    source /home/ubuntu/catboard/env/bin/activate
+    pip3 install -r requirements.txt
+    CATBOARD_SQLALCHEMY_DATABASE_URI=postgresql://postgres:WeQg5pJwboNKV5KCs6cl@catbird.c7gbhhbej6ev.eu-west-2.rds.amazonaws.com:5432/postgres flask db upgrade
+  ENDOFSU
+
+catboard_delete: &catboard_delete |
+  rm -rf /home/ubuntu/catboard
+
+caddy_deploy: &caddy_deploy |
+  wget -nc https://github.com/caddyserver/caddy/releases/download/v2.6.2/caddy_2.6.2_linux_amd64.deb
+  dpkg -i caddy_2.6.2_linux_amd64.deb
+  cat > /etc/caddy/Caddyfile <<"EOF"
+  awstest.oxfordfun.com {
+    basicauth /* {
+      user $2a$14$o7PTDRpSJcZFBEKOGFBBbeVjCZxzbA.fTFRLctldyxrZkLWOWYkwK
+    }
+    reverse_proxy ip-10-0-2-204.eu-west-2.compute.internal:7777 ip-10-0-12-216.eu-west-2.compute.internal:7777 {
+      fail_duration 30s
+    }
+  }
+  EOF
+  systemctl restart caddy
+
+caddy_delete: &caddy_delete |
+  systemctl stop caddy
+  apt purge -y caddy
+
+services:
+  - name: caddy
+    nodes: *caddy_nodes
+    svc_uris:
+      - https://awstest.oxfordfun.com
+    deploy: *caddy_deploy
+    delete: *caddy_delete
+    doc_sites:
+      - name: Docs
+        url: https://caddyserver.com/docs/
+
+  - name: catboard
+    unit: *catboard_unit
+    nodes: *all_nodes
+    deploy: *catboard_deploy
+    delete: *catboard_delete
+    doc_sites:
+      - name: Docs
+        url: https://github.com/dvolk/catboard
+
+mermaid_diagram: |
+  graph LR;
+  user(fa:fa-user catboard user)
+  caddy1[caddy<br/> ec2-18-134-229-193.eu-west-2.compute.amazonaws.com]
+  catboard1[catboard<br/> ec2-18-134-229-193.eu-west-2.compute.amazonaws.com]
+  catboard2[catboard<br/> ec2-18-134-249-194.eu-west-2.compute.amazonaws.com]
+  AWS-RDS(fa:fa-database AWS RDS<br/> catbird.c7gbhhbej6ev.eu-west-2.rds.amazonaws.com)
+  subgraph Internet
+  user
+  end
+  subgraph AWS VPC
+  user ---> caddy1 ---> catboard1 & catboard2 ---> AWS-RDS
+  end
+
+doc_sites:
+  - name: AWS Wikipedia
+    url: https://en.wikipedia.org/wiki/Amazon_Web_Services
