@@ -114,6 +114,7 @@ class Node:
                 device.startswith("/dev/sd")
                 or device.startswith("/dev/mapper")
                 or device.startswith("/dev/vd")
+                or device.startswith("/dev/root")
             ):
                 continue
             if mounted_on == "/boot/efi":
@@ -177,8 +178,8 @@ class Service:
         self.deploy_script = service_dict.get("deploy", None)
         self.delete_script = service_dict.get("delete", None)
         self.systemd_unit = service_dict.get("unit", None)
-        self.ports = service_dict.get("ports", None)
-        self.sites = service_dict.get("sites", [])
+        self.svc_uris = service_dict.get("svc_uris", [])
+        self.doc_sites = service_dict.get("doc_sites", [])
         self.status = dict()
         self.last_changed = dict()
 
@@ -449,52 +450,54 @@ def apply_settings():
 
 
 def process_mermaid_diagram(config, nodes, services):
-    """Set colors for the nodes in the mermaid diagram."""
+    """Set colors for the nodes in the mermaid diagram.
+
+    And add @ before node names.
+    """
     service_names = [service["name"] for service in config.get("services")]
     node_names = services.get_node_names()
     diagram_lines = config.get("mermaid_diagram").split("\n")
-    out = ["classDef good fill:#9f9;", "classDef bad fill:#f99;"]
+    out1 = []
+    out2 = ["classDef good fill:#9f9;", "classDef bad fill:#f99;"]
     for diagram_line in diagram_lines:
         m = re.match(r"(.*)\[(.*) (.*)\]", diagram_line)
-        if m:
+        if not m:
+            out1.append(diagram_line)
+        else:
             item_mermaid_id = m.group(1)
             item_service_name = m.group(2).replace("<br/>", "")
+            item_service_name_orig = m.group(2)
             item_node_name = m.group(3)
+
             if item_service_name in service_names and item_node_name in node_names:
+                out1.append(
+                    f"{item_mermaid_id}[{item_service_name_orig} fa:fa-at {item_node_name}]"
+                )
                 item_service_status = services.by_name[item_service_name].status[
                     item_node_name
                 ]
                 if item_service_status == "active":
-                    out.append(f"class {item_mermaid_id} good;")
+                    out2.append(f"class {item_mermaid_id} good;")
                 else:
-                    out.append(f"class {item_mermaid_id} bad;")
-    return "\n".join(out)
+                    out2.append(f"class {item_mermaid_id} bad;")
+            else:
+                out1.append(diagram_line)
+
+    return "\n".join(out1 + out2)
 
 
-INCLUDED_SITES = [
+INCLUDED_DOC_SITES = [
     {
         "name": "Sillycat",
         "url": "https://github.com/dvolk/sc",
-    },
-    {
-        "name": "Systemd docs",
-        "url": "https://www.freedesktop.org/wiki/Software/systemd/",
     },
     {
         "name": "Systemd on Archwiki",
         "url": "https://wiki.archlinux.org/title/systemd",
     },
     {
-        "name": "Systemd by example",
-        "url": "https://systemd-by-example.com/",
-    },
-    {
         "name": "Podman",
         "url": "https://docs.podman.io/en/latest/",
-    },
-    {
-        "name": "Running podman containers in systemd",
-        "url": "https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux_atomic_host/7/html/managing_containers/running_containers_as_systemd_services_with_podman",
     },
     {
         "name": "Mermaid.js flowcharts",
@@ -513,17 +516,16 @@ def index():
     services.update_service_status()
     out = make_service_node_dict()
     nodes = Nodes(services.get_node_names())
-    sites = INCLUDED_SITES + config.get("sites", [])
+    doc_sites = INCLUDED_DOC_SITES + config.get("doc_sites", [])
     nodes.update()
     title = "sillycat dashboard"
     if nodes.warnings or services.warnings:
         title = "WARN sillycat dashboard"
     mermaid_diagram = None
-    mermaid_postamble = None
     config_paths = [x.name for x in pathlib.Path(".").glob("*.yaml")]
     if cfg_draw_mermaid_diagram:
         mermaid_diagram = config.get("mermaid_diagram")
-        mermaid_postamble = process_mermaid_diagram(config, nodes, services)
+        mermaid_diagram = process_mermaid_diagram(config, nodes, services)
     return flask.render_template(
         "services.jinja2",
         services=services,
@@ -532,9 +534,8 @@ def index():
         refresh_rate=refresh_rate,
         search_filter=search_filter,
         title=title,
-        sites=sites,
+        doc_sites=doc_sites,
         mermaid_diagram=mermaid_diagram,
-        mermaid_postamble=mermaid_postamble,
         cfg_draw_mermaid_diagram=cfg_draw_mermaid_diagram,
         cfg_draw_tables=cfg_draw_tables,
         config_paths=config_paths,
