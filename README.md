@@ -13,7 +13,7 @@
 
 ## Screenshot
 
-<img src="https://i.imgur.com/yoKgAWz.png">
+<img src="https://i.imgur.com/o7qWbVN.png">
 
 ## Installing and running sc (tested on Ubuntu 22.04)
 
