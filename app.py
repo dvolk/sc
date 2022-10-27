@@ -520,6 +520,7 @@ def index():
         title = "WARN sillycat dashboard"
     mermaid_diagram = None
     mermaid_postamble = None
+    config_paths = [x.name for x in pathlib.Path(".").glob("*.yaml")]
     if cfg_draw_mermaid_diagram:
         mermaid_diagram = config.get("mermaid_diagram")
         mermaid_postamble = process_mermaid_diagram(config, nodes, services)
@@ -536,7 +537,20 @@ def index():
         mermaid_postamble=mermaid_postamble,
         cfg_draw_mermaid_diagram=cfg_draw_mermaid_diagram,
         cfg_draw_tables=cfg_draw_tables,
+        config_paths=config_paths,
+        cfg_services_yaml=cfg_services_yaml,
     )
+
+
+@app.route("/change_config", methods=["POST"])
+def change_config():
+    """Endpoint to change to a different endpoint."""
+    if flask.request.form.get("Submit") == "Submit_change":
+        new_config = flask.request.form.get("new_config")
+        if pathlib.Path(new_config).exists():
+            global cfg_services_yaml
+            cfg_services_yaml = new_config
+    return flask.redirect(flask.url_for("index"))
 
 
 @app.route("/toggle_acknowledge_alert/<service_name>/<node_name>/<node_alert_type>")

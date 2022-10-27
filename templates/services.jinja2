@@ -54,7 +54,17 @@
   {% endmacro %}
 
   <header class="w3-container {% if nodes.warnings + services.warnings > 0 %}w3-red{% else %}w3-indigo{% endif %}">
-    <h2>{{ icon('dashboard') }} Dashboard</h2>
+    <h2 style="display: inline-block">{{ icon('dashboard') }} Dashboard</h2>
+    <form style="display: inline" method="POST" action="/change_config">
+      <button name="Submit" value="Submit_change" class="w3-btn w3-blue" style="margin-left: 5px; float: right; margin-top: 14px; width: display: inline">Switch</button>
+      "{{ cfg_services_yaml }}"
+      <select style="float: right; margin-top: 15px; width: 25%; display: inline" name="new_config" class="w3-input">
+        {% for config_path in config_paths %}
+          "{{ config_path }}"
+          <option value="{{ config_path }}"{% if config_path == cfg_services_yaml %} selected{% endif %}>{{ config_path }}</option>
+        {% endfor %}
+      </select>
+    </form>
   </header>
 
   {#
