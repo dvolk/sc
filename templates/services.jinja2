@@ -60,7 +60,6 @@
       "{{ cfg_services_yaml }}"
       <select style="float: right; margin-top: 15px; width: 25%; display: inline" name="new_config" class="w3-input">
         {% for config_path in config_paths %}
-          "{{ config_path }}"
           <option value="{{ config_path }}"{% if config_path == cfg_services_yaml %} selected{% endif %}>{{ config_path }}</option>
         {% endfor %}
       </select>
