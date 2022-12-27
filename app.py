@@ -5,6 +5,7 @@ import collections
 import pathlib
 import datetime
 import re
+import json
 
 import yaml
 import flask
@@ -526,6 +527,12 @@ def index():
     if cfg_draw_mermaid_diagram:
         mermaid_diagram = config.get("mermaid_diagram")
         mermaid_diagram = process_mermaid_diagram(config, nodes, services)
+
+    if flask.request.args.get("json"):
+        n = [node.__dict__ for node in nodes.nodes]
+        s = [service.__dict__ for service in services.all]
+        return json.dumps({"nodes": n, "services": s})
+
     return flask.render_template(
         "services.jinja2",
         services=services,
